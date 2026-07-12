@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
 import { findPath } from '../src/core/path';
 import type { GridPos, StageDef } from '../src/core/types';
-import { posKey } from '../src/core/types';
+import { MAX_TREATS, posKey } from '../src/core/types';
 import { makeTestStage } from './helpers';
 
 /**
@@ -214,5 +214,26 @@ describe('findPath: 同一座標のおやつ重複は無害化される', () => 
     const result = findPath(grid);
     expect(result.complete).toBe(true);
     expect(result.route).toContainEqual({ x: 1, z: 1 });
+  });
+});
+
+describe('findPath: おやつが最大数を超えると throw する(防御)', () => {
+  // defineStage は構築時に弾くが、findPath は直接組まれた StageDef も受け取る。
+  // 超過分を黙って切り捨てず、早く失敗することを保証する(M5.1)。
+  it('最大数を超えるおやつを渡すと throw する', () => {
+    const tooMany: GridPos[] = Array.from({ length: MAX_TREATS + 1 }, (_, i) => ({ x: i, z: 1 }));
+    const stage: StageDef = { ...makeTestStage(), treats: tooMany };
+    // Grid 生成時点では気づかない(パネル配置前)ので、findPath で弾く
+    expect(() => new Grid(stage)).not.toThrow();
+    expect(() => findPath(new Grid(stage))).toThrow(/おやつは \d+つまで です/);
+  });
+
+  it('最大数ちょうどなら throw しない', () => {
+    const stage = stageWith([
+      { x: 0, z: 1 },
+      { x: 1, z: 1 },
+      { x: 2, z: 1 },
+    ]);
+    expect(() => findPath(new Grid(stage))).not.toThrow();
   });
 });

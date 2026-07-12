@@ -89,7 +89,7 @@ export const DOGS: Record<string, DogInfo> = {
     nameHtml: 'ビーグル',
     shortName: 'ビーグル',
     originHtml: 'イギリス',
-    personality: 'なかまづきで こうきしんが つよい',
+    personality: 'なかまが だいすきで こうきしんが つよい',
     size: 'ふつう (たいじゅう 9〜11kg くらい)',
     trivia:
       'はなの ききが ばつぐん。<ruby>元<rt>もと</rt></ruby>は うさぎを おう <ruby>猟犬<rt>りょうけん</rt></ruby> だったよ。スヌーピーの モデル。',
@@ -104,7 +104,7 @@ export const DOGS: Record<string, DogInfo> = {
     personality: 'おだやかで ゆうかん',
     size: 'ふつう (たいじゅう 18〜25kg くらい)',
     trivia:
-      'イギリスを だいひょうする いぬ。がんこうに みえるけれど おとなしくて とっても やさしいよ。',
+      'イギリスを だいひょうする いぬ。がんこそうに みえるけれど おとなしくて とっても やさしいよ。',
     furColor: 0xd9b08c,
     scale: 0.92,
   },

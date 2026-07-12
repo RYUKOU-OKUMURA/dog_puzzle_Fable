@@ -33,7 +33,12 @@ export function findPath(grid: Grid): PathResult {
   const goalPos = grid.stage.goal.pos;
   const goalKey = posKey(goalPos);
 
-  const treats = (grid.stage.treats ?? []).slice(0, MAX_TREATS);
+  // defineStage 経由なら起きないが、直接 StageDef を組んだときに超過分を黙って切り捨てると
+  // 気づきにくい不具合になる。最大数を超えるなら仕様外として早く失敗させる。
+  const treats = grid.stage.treats ?? [];
+  if (treats.length > MAX_TREATS) {
+    throw new Error(`おやつは ${MAX_TREATS}つまで です(${treats.length}つ あります)`);
+  }
   // 同一座標のおやつは1つにまとめる(重複させると到達不能ビットが残り、永遠にクリアできなくなる)
   const treatBit = new Map<string, number>();
   for (const p of treats) {

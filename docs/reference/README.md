@@ -15,6 +15,11 @@
 |---|---|
 | `baseline-w1-town.png` | フェーズ1完成時のステージ1(にほんの まち)。**全体の最低基準** |
 
+## concepts/ サブフォルダ
+
+`concepts/` には画像生成AIによる各ステージのコンセプトアートを置く(生成指示は [../concept-art-brief.md](../concept-art-brief.md))。
+**concepts/ は発想材料であり規範ではない**。合格判定に使うのは reference/ 直下の baseline 画像のみ。
+
 ## 運用ルール
 
 - 新ワールドの街並みが人間の承認を得たら、そのスクリーンショットを `baseline-w2-town.png` のように追加し、上の表を更新する(以降そのワールドの基準になる)

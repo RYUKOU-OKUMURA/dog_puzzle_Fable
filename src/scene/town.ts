@@ -15,6 +15,11 @@ const HOUSE_WALLS = [0xfff3dd, 0xffe3e9, 0xe4f3ff, 0xf3ffe0];
 const HOUSE_ROOFS = [0xe0604f, 0xf2903d, 0x7fbf7a, 0x6faed9];
 const TREE_GREENS = [0x69bd63, 0x7fcf74, 0x5cb168];
 const FLOWER_COLORS = [0xff8fad, 0xffd166, 0xffffff, 0xff6f91];
+// W2(イギリス): レンガ壁は既存屋根色のくすみ赤・オレンジ(design-guide 6.2 のパレット内)
+const BRICK_WALLS = [0xe0604f, 0xf2903d];
+// スレート(石板)屋根は青系屋根色を流用
+const SLATE_ROOF = 0x6faed9;
+const PHONE_RED = 0xe0604f;
 
 function hash(pos: GridPos, salt = 0): number {
   return Math.abs(pos.x * 7 + pos.z * 13 + salt * 17);
@@ -181,6 +186,10 @@ function buildScenery(kind: SceneryKind, pos: GridPos): THREE.Group {
       return buildPond();
     case 'torii':
       return buildTorii();
+    case 'brickHouse':
+      return buildBrickHouse(pos);
+    case 'phoneBox':
+      return buildPhoneBox(pos);
   }
 }
 
@@ -304,5 +313,80 @@ function buildTorii(): THREE.Group {
   midBar.position.y = 0.56;
   group.add(midBar);
 
+  return withShadow(group);
+}
+
+/**
+ * W2 イギリス: レンガの家。壁はくすみ赤のレンガ、屋根はスレート青、煙突つき。
+ * 既存の家(house)と同じ寸法だが、土地らしさは色で出す(design-guide 6.2 のパレット内)。
+ */
+function buildBrickHouse(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const wall = BRICK_WALLS[hash(pos) % BRICK_WALLS.length]!;
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.42, 0.52), lambert(wall));
+  body.position.y = 0.21;
+  group.add(body);
+
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.34, 4), lambert(SLATE_ROOF));
+  roof.position.y = 0.59;
+  roof.rotation.y = Math.PI / 4;
+  group.add(roof);
+
+  // 煙突(イギリスの家の記号)
+  const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), lambert(SLATE_ROOF));
+  chimney.position.set(0.18, 0.66, -0.14);
+  group.add(chimney);
+
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.2, 0.04), lambert(0x9c6b4a));
+  door.position.set(0, 0.1, 0.27);
+  group.add(door);
+
+  // 白い縦枠の窓(テラスハウス風)
+  const windowFrame = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.03), lambert(0xfff3dd));
+  windowFrame.position.set(-0.18, 0.26, 0.27);
+  group.add(windowFrame);
+
+  group.rotation.y = (hash(pos, 2) % 4) * (Math.PI / 2);
+  return withShadow(group);
+}
+
+/**
+ * W2 イギリス: あかい でんわボックス。細い背の箱に小さな屋根とクリーム色の窓。
+ * design-guide 6.2 の赤(0xe0604f)を使い、真っ赤にしない。
+ */
+function buildPhoneBox(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const red = lambert(PHONE_RED);
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.62, 0.3), red);
+  body.position.y = 0.31;
+  group.add(body);
+
+  // 頭頂部のひさし(でんわボックスの王冠)
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.36), red);
+  crown.position.y = 0.65;
+  group.add(crown);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), red);
+  top.position.y = 0.71;
+  group.add(top);
+
+  // クリーム色の窓(4面の上半分)
+  const glass = lambert(0xfff3dd);
+  const panePositions: Array<[number, number]> = [
+    [0, 0.151],
+    [0, -0.151],
+    [0.151, 0],
+    [-0.151, 0],
+  ];
+  for (const [sx, sz] of panePositions) {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.02), glass);
+    pane.position.set(sx, 0.4, sz);
+    if (sx !== 0) pane.rotation.y = Math.PI / 2;
+    group.add(pane);
+  }
+
+  // 向きを少し変えて並べすぎを防ぐ(hashで安定)
+  group.rotation.y = (hash(pos, 6) % 4) * (Math.PI / 2);
   return withShadow(group);
 }

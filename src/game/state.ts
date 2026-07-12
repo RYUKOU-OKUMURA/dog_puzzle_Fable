@@ -1,6 +1,7 @@
 import { connectionsOf, DIR_OFFSET, OPPOSITE } from '../core/panel';
 import { findPath } from '../core/path';
 import type { GridPos, PanelKind, StageDef } from '../core/types';
+import { posKey } from '../core/types';
 import type { SceneContext } from '../scene/renderer';
 import { cellToScreen } from '../scene/input';
 import { gridToWorld } from '../scene/coords';
@@ -401,10 +402,16 @@ export class Game {
     this.deps.zukan.show(this.save, () => {});
   }
 
-  /** 「おさんぽスタート!」 */
+  /**
+   * 「おさんぽスタート!」
+   * 判定は3通り:
+   *  (1) 完成(全おやつ通過ルートでゴール) → お散歩→出会い
+   *  (2) 道未完成(ゴールへ届かない) → 途中まで歩いて首かしげ(従来挙動)
+   *  (3) おやつ残り(ゴールへ届くがおやつを取りこぼす) → お散歩に出ず、おやつを強調
+   */
   async startWalk(): Promise<void> {
     if (this.phase !== 'puzzle' || !this.runtime) return;
-    const { grid, stage, puzzle } = this.runtime;
+    const { grid, stage, puzzle, treats } = this.runtime;
     const { hud, animator } = this.deps;
 
     const result = findPath(grid);
@@ -414,21 +421,46 @@ export class Game {
     hud.setVisible(false);
 
     if (result.complete) {
-      await walkAlong(this.shiba, result.route, stage, animator);
+      // クリア: 全おやつを通るルートを歩く。通ったマスのおやつを「ぱくっ」と食べる
+      const remaining = treats.remainingKeys();
+      const eatIfTreat = (cell: GridPos): Promise<void> | void => {
+        const key = posKey(cell);
+        if (remaining.has(key)) {
+          remaining.delete(key);
+          return treats.eatAt(cell, animator);
+        }
+      };
+      // route[0](スタート)は walkAlong の onArrive が発火しないため、歩き出しに食べる
+      if (result.route.length > 0) await eatIfTreat(result.route[0]!);
+      await walkAlong(
+        this.shiba,
+        result.route,
+        stage,
+        animator,
+        0.42,
+        (cell) => eatIfTreat(cell),
+      );
       await this.meetFriend();
       return;
     }
 
-    // 失敗: 行けるところまで歩いて、首をかしげて、おうちに戻る
-    if (result.route.length > 1) {
-      await walkAlong(this.shiba, result.route, stage, animator);
+    if (!result.goalReachable) {
+      // (2) 道未完成: 行けるところまで歩いて、首をかしげて、おうちに戻る
+      if (result.route.length > 1) {
+        await walkAlong(this.shiba, result.route, stage, animator);
+      }
+      await headTilt(this.shiba, animator);
+      hud.showToast('あれれ? みちが つながって いないみたい', 2800);
+      if (result.route.length > 1) {
+        await walkAlong(this.shiba, [...result.route].reverse(), stage, animator, 0.2);
+      }
+      this.resetShiba();
+    } else {
+      // (3) おやつ残り: お散歩には出ず、おやつをやわらかく強調して知らせる。盤面はそのまま
+      await treats.wiggle(animator);
+      hud.showToast('おやつが のこってるよ! ぜんぶ とってね', 3000);
     }
-    await headTilt(this.shiba, animator);
-    hud.showToast('あれれ? みちが つながって いないみたい', 2800);
-    if (result.route.length > 1) {
-      await walkAlong(this.shiba, [...result.route].reverse(), stage, animator, 0.2);
-    }
-    this.resetShiba();
+
     this.phase = 'puzzle';
     puzzle.enabled = true;
     hud.setVisible(true);

@@ -3,6 +3,10 @@ import { w1s1 } from './w1s1';
 import { w1s2 } from './w1s2';
 import { w1s3 } from './w1s3';
 import { w1s4 } from './w1s4';
+import { w2s1 } from './w2s1';
+import { w2s2 } from './w2s2';
+import { w2s3 } from './w2s3';
+import { w2s4 } from './w2s4';
 
 /**
  * ワールドの定義。5ワールド(にほん→せかいのたび)。
@@ -34,7 +38,7 @@ export const WORLDS: readonly WorldDef[] = [
     nameHtml: 'イギリス',
     emoji: '🏰',
     sub: 'れんがの まちと あかい でんわボックス',
-    stages: [],
+    stages: [w2s1, w2s2, w2s3, w2s4],
   },
   {
     id: 'w3',

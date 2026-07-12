@@ -5,13 +5,17 @@ import { Animator, easeInOut, shortestAngleTarget } from './tween';
 
 const TURN_SECONDS = 0.14;
 
-/** ルートのセル列に沿って犬をテクテク歩かせる */
+/**
+ * ルートのセル列に沿って犬をテクテク歩かせる。
+ * onArrive は各マスへ到着した直後(そのマスの移動完了後)に呼ぶ。おやつを食べる演出等に使う。
+ */
 export async function walkAlong(
   dog: DogModel,
   route: GridPos[],
   stage: StageDef,
   animator: Animator,
   secondsPerCell = 0.42,
+  onArrive?: (cell: GridPos) => Promise<void> | void,
 ): Promise<void> {
   for (let i = 1; i < route.length; i++) {
     const from = gridToWorld(route[i - 1]!, stage);
@@ -35,6 +39,8 @@ export async function walkAlong(
       dog.group.position.y = Math.abs(Math.sin(t * Math.PI * 2)) * 0.06;
       dog.group.rotation.z = Math.sin(t * Math.PI * 4) * 0.045;
     });
+
+    if (onArrive) await onArrive(route[i]!);
   }
   dog.group.position.y = 0;
   dog.group.rotation.z = 0;

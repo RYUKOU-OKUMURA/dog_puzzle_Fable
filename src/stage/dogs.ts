@@ -72,7 +72,55 @@ export const DOGS: Record<string, DogInfo> = {
     furColor: 0x7a5a3e,
     scale: 1.05,
   },
+  corgi: {
+    id: 'corgi',
+    nameHtml: 'コーギー',
+    shortName: 'コーギー',
+    originHtml: 'イギリス(ウェールズ)',
+    personality: 'あたまが よくて げんきいっぱい',
+    size: 'ちいさめ (たいじゅう 10〜14kg くらい)',
+    trivia:
+      'イギリスの <ruby>女王<rt>じょおう</rt></ruby>に なんねんも あいされた ゆうめいな いぬ。みじかい あしで うしを あつめる <ruby>牧牛犬<rt>ぼくぎゅうけん</rt></ruby> だったよ。',
+    furColor: 0xe09a55,
+    scale: 0.82,
+  },
+  beagle: {
+    id: 'beagle',
+    nameHtml: 'ビーグル',
+    shortName: 'ビーグル',
+    originHtml: 'イギリス',
+    personality: 'なかまづきで こうきしんが つよい',
+    size: 'ふつう (たいじゅう 9〜11kg くらい)',
+    trivia:
+      'はなの ききが ばつぐん。<ruby>元<rt>もと</rt></ruby>は うさぎを おう <ruby>猟犬<rt>りょうけん</rt></ruby> だったよ。スヌーピーの モデル。',
+    furColor: 0xb07a45,
+    scale: 0.95,
+  },
+  bulldog: {
+    id: 'bulldog',
+    nameHtml: 'ブルドッグ',
+    shortName: 'ブルドッグ',
+    originHtml: 'イギリス',
+    personality: 'おだやかで ゆうかん',
+    size: 'ふつう (たいじゅう 18〜25kg くらい)',
+    trivia:
+      'イギリスを だいひょうする いぬ。がんこうに みえるけれど おとなしくて とっても やさしいよ。',
+    furColor: 0xd9b08c,
+    scale: 0.92,
+  },
+  golden: {
+    id: 'golden',
+    nameHtml: 'ゴールデンレトリバー',
+    shortName: 'ゴールデン',
+    originHtml: 'イギリス(スコットランド)',
+    personality: 'おとなしくて かしこく やさしい',
+    size: 'おおきい (たいじゅう 25〜34kg くらい)',
+    trivia:
+      '<ruby>水鳥<rt>みずどり</rt></ruby>を とる <ruby>猟犬<rt>りょうけん</rt></ruby>。およぐのが とくいで、ひとの てつだいを する やさしい いぬ なんだ。',
+    furColor: 0xe8c478,
+    scale: 1.3,
+  },
 };
 
-/** 図鑑に載る順番(相棒の柴犬 → ワールド1の出会い順) */
-export const DOG_ORDER = ['shiba', 'akita', 'chin', 'spitz', 'kai'];
+/** 図鑑に載る順番(相棒の柴犬 → ワールド1 → ワールド2の出会い順) */
+export const DOG_ORDER = ['shiba', 'akita', 'chin', 'spitz', 'kai', 'corgi', 'beagle', 'bulldog', 'golden'];

@@ -5,6 +5,7 @@ import { BoardView } from '../scene/boardView';
 import { disposeObject } from '../scene/dispose';
 import type { SceneContext } from '../scene/renderer';
 import { buildTown, type Town } from '../scene/town';
+import { TreatsView } from '../scene/treats';
 import type { Hud } from '../ui/hud';
 import { PuzzleController } from './puzzle';
 
@@ -16,8 +17,8 @@ interface StageRuntimeDeps {
 
 /**
  * 1ステージぶんの実行時オブジェクトを束ねる: 盤面ロジック(Grid)・街・盤面ビュー・
- * パズル操作・タップ入力。ステージ選択のたびに破棄→生成して、ステージごとの盤面差し替えを
- * 安全に行う(Three.js のグループ/リスナを併せて入れ替える)。
+ * パズル操作・タップ入力・おやつ表示。ステージ選択のたびに破棄→生成して、ステージごとの
+ * 盤面差し替えを安全に行う(Three.js のグループ/リスナを併せて入れ替える)。
  */
 export class StageRuntime {
   readonly stage: StageDef;
@@ -25,6 +26,7 @@ export class StageRuntime {
   readonly town: Town;
   readonly boardView: BoardView;
   readonly puzzle: PuzzleController;
+  readonly treats: TreatsView;
   private readonly detach: () => void;
 
   constructor(stage: StageDef, deps: StageRuntimeDeps) {
@@ -34,6 +36,8 @@ export class StageRuntime {
     this.grid = new Grid(stage);
     this.town = buildTown(stage);
     sceneContext.scene.add(this.town.group);
+    this.treats = new TreatsView(stage);
+    sceneContext.scene.add(this.treats.group);
     this.boardView = new BoardView(sceneContext.scene, stage);
     this.puzzle = new PuzzleController({
       grid: this.grid,
@@ -62,6 +66,8 @@ export class StageRuntime {
   dispose(): void {
     this.detach();
     this.boardView.disposeAll();
+    this.treats.group.parent?.remove(this.treats.group);
+    this.treats.dispose();
     this.town.group.parent?.remove(this.town.group);
     disposeObject(this.town.group);
   }

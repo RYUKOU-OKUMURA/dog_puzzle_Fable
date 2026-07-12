@@ -26,8 +26,12 @@ describe('道トークンの接続が core/panel と一致する', () => {
   it('道トークンは10種', () => {
     expect(Object.keys(ROAD_TOKENS).length).toBe(10);
   });
-  it('添景トークンは6種', () => {
-    expect(Object.keys(SCENERY_TOKENS).length).toBe(6);
+  it('添景トークンは8種', () => {
+    expect(Object.keys(SCENERY_TOKENS).length).toBe(8);
+  });
+  it('W2の添景トークン(レ=レンガ家 / 電=でんわボックス)が含まれる', () => {
+    expect(SCENERY_TOKENS['レ']).toBe('brickHouse');
+    expect(SCENERY_TOKENS['電']).toBe('phoneBox');
   });
 });
 
@@ -176,6 +180,132 @@ describe('defineStage: StageMapInput を StageDef に変換する', () => {
     expect(stage.fixedRoads).toEqual([{ pos: { x: 1, z: 0 }, kind: 'straight', rotation: 90 }]);
     expect(stage.treats).toBeUndefined();
     expect(stage.palette).toBeUndefined();
+  });
+});
+
+describe('defineStage: treats のパースと検証', () => {
+  // おやつ検証用の土台: ★(0,0)→─(1,0)→◎(2,0)、(1,1)にスロット
+  const baseMap = ['★ ─ ◎', '.  □ .'];
+
+  it('おやつなし(treats 省略)は undefined', () => {
+    const stage = defineStage({ id: 't', name: 't', world: 'w2', encounterDogId: 'd', map: baseMap });
+    expect(stage.treats).toBeUndefined();
+  });
+
+  it('おやつ空配列は []', () => {
+    const stage = defineStage({
+      id: 't',
+      name: 't',
+      world: 'w2',
+      encounterDogId: 'd',
+      map: baseMap,
+      treats: [],
+    });
+    expect(stage.treats).toEqual([]);
+  });
+
+  it('スロット・固定道・端点マスのおやつを座標に変換する', () => {
+    const stage = defineStage({
+      id: 't',
+      name: 't',
+      world: 'w2',
+      encounterDogId: 'd',
+      map: baseMap,
+      treats: ['1,0', '1,1', '0,0'], // 固定道・スロット・★
+    });
+    expect(stage.treats).toEqual([
+      { x: 1, z: 0 },
+      { x: 1, z: 1 },
+      { x: 0, z: 0 },
+    ]);
+  });
+
+  it('形式不正(カンマなし)は StageMapError', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w2',
+        encounterDogId: 'd',
+        map: baseMap,
+        treats: ['1 0'],
+      });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/x,z の けいしき/);
+  });
+
+  it('盤外は StageMapError', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w2',
+        encounterDogId: 'd',
+        map: baseMap,
+        treats: ['9,9'],
+      });
+    expect(fn).toThrow(/ばんめんの そとです/);
+  });
+
+  it('芝生マスは StageMapError', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w2',
+        encounterDogId: 'd',
+        map: baseMap,
+        treats: ['0,1'], // (0,1)は芝生
+      });
+    expect(fn).toThrow(/みちが とおれません/);
+  });
+
+  it('添景マスは StageMapError', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w2',
+        encounterDogId: 'd',
+        map: ['★ ─ ◎', '木 □ .'],
+        treats: ['0,1'], // (0,1)は木
+      });
+    expect(fn).toThrow(/みちが とおれません/);
+  });
+
+  it('おやつ4つは StageMapError(最大3)', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w2',
+        encounterDogId: 'd',
+        map: baseMap,
+        treats: ['1,0', '1,1', '0,0', '2,0'],
+      });
+    expect(fn).toThrow(/3つまで/);
+  });
+
+  it('同じ座標に複数のおやつは StageMapError', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w2',
+        encounterDogId: 'd',
+        map: baseMap,
+        treats: ['1,0', '1,0'],
+      });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/おなじ ばしょ/);
+  });
+});
+
+describe('parseStageMap: W2の添景トークン(レ・電)', () => {
+  it('レ は brickHouse、電 は phoneBox として添景に並ぶ', () => {
+    const parsed = parseStageMap(['★ ─ ◎', 'レ .  電']);
+    expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'brickHouse' });
+    expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'phoneBox' });
   });
 });
 

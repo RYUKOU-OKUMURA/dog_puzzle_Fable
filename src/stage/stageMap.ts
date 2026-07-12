@@ -6,6 +6,7 @@ import type {
   SceneryKind,
   StageDef,
 } from '../core/types';
+import { MAX_TREATS, posKey } from '../core/types';
 
 /** defineStage への入力(テキスト地図フォーマット) */
 export interface StageMapInput {
@@ -73,7 +74,7 @@ const END_ROTATION: Readonly<Record<Dir, Rotation>> = {
   W: 270,
 };
 
-/** 添景トークン → 種別。'鳥' は鳥居(とりい) */
+/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜) */
 export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   '木': 'tree',
   '家': 'house',
@@ -81,6 +82,8 @@ export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   '花': 'flower',
   '池': 'pond',
   '鳥': 'torii',
+  'レ': 'brickHouse',
+  '電': 'phoneBox',
 };
 
 /**
@@ -243,6 +246,8 @@ function deriveEndRotation(
 /** テキスト地図から StageDef を組み立てる(M1 以降のステージ定義はこれ経由で書く) */
 export function defineStage(input: StageMapInput): StageDef {
   const parsed = parseStageMap(input.map);
+  // おやつは 'x,z' 文字列から座標へ変換し、盤外・道になり得ないマスを弾く(M5〜)
+  const treats = input.treats ? parseTreats(input.treats, parsed) : undefined;
   return {
     id: input.id,
     name: input.name,
@@ -255,7 +260,47 @@ export function defineStage(input: StageMapInput): StageDef {
     scenery: parsed.scenery,
     encounterDogId: input.encounterDogId,
     difficulty: input.difficulty,
-    treats: input.treats,
+    treats,
     palette: input.palette,
   };
+}
+
+/** おやつは 'x,z' を座標に変換し、不正なら StageMapError。最大個数・重複もここで弾く */
+function parseTreats(treats: string[], parsed: ParsedStageMap): GridPos[] {
+  if (treats.length > MAX_TREATS) {
+    fail(`おやつは ${MAX_TREATS}つまで です(${treats.length}つ あります)`);
+  }
+
+  // 道になり得るマス(スロット・固定道・スタート・ゴール)以外に置いたおやつは無効
+  const roadable = new Set<string>();
+  for (const s of parsed.slots) roadable.add(posKey(s));
+  for (const r of parsed.fixedRoads) roadable.add(posKey(r.pos));
+  roadable.add(posKey(parsed.start.pos));
+  roadable.add(posKey(parsed.goal.pos));
+
+  const result: GridPos[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < treats.length; i++) {
+    const raw = treats[i]!.trim();
+    const parts = raw.split(',').map((p) => p.trim());
+    if (parts.length !== 2 || parts.some((p) => !/^\d+$/.test(p))) {
+      fail(`おやつ ${i + 1}つめ: 「${raw}」は x,z の けいしき(すうじ,すうじ)で ありません`);
+    }
+    const x = Number(parts[0]!);
+    const z = Number(parts[1]!);
+    if (x < 0 || x >= parsed.size.w || z < 0 || z >= parsed.size.h) {
+      fail(`おやつ ${i + 1}つめ: (${x},${z}) は ばんめんの そとです`);
+    }
+    if (!roadable.has(posKey({ x, z }))) {
+      fail(
+        `おやつ ${i + 1}つめ: ${z + 1}行 ${x + 1}列め には みちが とおれません(くさ か ていけいの うえ です)`,
+      );
+    }
+    if (seen.has(posKey({ x, z }))) {
+      fail(`おやつ ${i + 1}つめ: (${x},${z}) と おなじ ばしょに 2つ おやつが あります`);
+    }
+    seen.add(posKey({ x, z }));
+    result.push({ x, z });
+  }
+  return result;
 }

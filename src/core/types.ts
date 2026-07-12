@@ -18,7 +18,15 @@ export interface Panel {
   fixed: boolean;
 }
 
-export type SceneryKind = 'house' | 'building' | 'tree' | 'flower' | 'pond' | 'torii';
+export type SceneryKind =
+  | 'house'
+  | 'building'
+  | 'tree'
+  | 'flower'
+  | 'pond'
+  | 'torii'
+  | 'brickHouse'
+  | 'phoneBox';
 
 export interface StageDef {
   id: string;
@@ -39,11 +47,14 @@ export interface StageDef {
   encounterDogId: string;
   /** 難度(🦴1〜5)。ステージ選択画面(M4)の表示と、難度表(plan.md)の照合に使う */
   difficulty?: number;
-  /** おやつのマス 'x,z'。M5(おやつ収集)から使用 */
-  treats?: string[];
+  /** おやつのマス(座標)。M5(おやつ収集)から使用。defineStage で 'x,z' 文字列から検証済み座標へ変換 */
+  treats?: GridPos[];
   /** プレイヤーが使えるパネル種。M6(パレット制限)から使用 */
   palette?: PanelKind[];
 }
+
+/** おやつは最大3個(要件5.1)。core/path(経路判定)と stage/stageMap(パース検証)の両方から参照 */
+export const MAX_TREATS = 3;
 
 export function posKey(pos: GridPos): string {
   return `${pos.x},${pos.z}`;

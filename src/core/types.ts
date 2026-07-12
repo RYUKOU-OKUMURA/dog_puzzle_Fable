@@ -24,6 +24,8 @@ export interface StageDef {
   id: string;
   /** 表示名(ふりがな用に <ruby> を含んでよい) */
   name: string;
+  /** 所属ワールドID(例: 'w1')。ワールド選択(M4)で使用 */
+  world?: string;
   size: { w: number; h: number };
   /** スタート(おうち)。end パネルとして盤面に置かれる */
   start: { pos: GridPos; rotation: Rotation };
@@ -35,6 +37,10 @@ export interface StageDef {
   scenery: { pos: GridPos; kind: SceneryKind }[];
   /** ゴールで出会う犬種ID */
   encounterDogId: string;
+  /** おやつのマス 'x,z'。M5(おやつ収集)から使用 */
+  treats?: string[];
+  /** プレイヤーが使えるパネル種。M6(パレット制限)から使用 */
+  palette?: PanelKind[];
 }
 
 export function posKey(pos: GridPos): string {

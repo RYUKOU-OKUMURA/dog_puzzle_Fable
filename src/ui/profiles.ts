@@ -48,17 +48,21 @@ export class ProfilesView {
   }
 
   hide(): void {
-    this.overlay?.remove();
-    this.overlay = null;
+    this.removeOverlay();
     this.callbacks = null;
   }
 
   private mountOverlay(): void {
-    this.hide();
+    this.removeOverlay();
     const overlay = document.createElement('div');
     overlay.className = 'screen screen-sky profile-screen';
     this.root.append(overlay);
     this.overlay = overlay;
+  }
+
+  private removeOverlay(): void {
+    this.overlay?.remove();
+    this.overlay = null;
   }
 
   private clearOverlay(): void {

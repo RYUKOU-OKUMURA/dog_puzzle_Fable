@@ -48,7 +48,8 @@ import type { WorldSelectView } from '../ui/worldSelect';
 import type { ZukanView } from '../ui/zukan';
 import { StageRuntime } from './stageRuntime';
 import type { Animator } from './tween';
-import { celebrate, headTilt, placeDogAt, walkAlong } from './walk';
+import { photoZoomForFriendScale } from './photo';
+import { celebrate, faceTowardIsometricCamera, headTilt, placeDogAt, walkAlong } from './walk';
 
 export type Phase =
   | 'select'
@@ -473,13 +474,17 @@ export class Game {
     await Promise.all([celebrate(this.shiba, animator), celebrate(this.friend, animator)]);
     await animator.wait(0.3);
 
-    // 記念写真
+    // 撮影直前に2匹をカメラ正面(アイソメ4方位)へ向ける
+    faceTowardIsometricCamera(this.shiba);
+    faceTowardIsometricCamera(this.friend);
+
+    // 記念写真(ゴールと友犬マスの中点。zoom は友犬 scale で補正)
     const goalWorld = gridToWorld(stage.goal.pos, stage);
     const friendWorld = gridToWorld(friendCell, stage);
     this.lastPhoto = sceneContext.capturePhotoAt(
       (goalWorld.x + friendWorld.x) / 2,
       (goalWorld.z + friendWorld.z) / 2,
-      2.6,
+      photoZoomForFriendScale(dogInfo.scale),
       320,
     );
 

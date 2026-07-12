@@ -33,7 +33,7 @@ export const WORLDS: readonly WorldDef[] = [
     id: 'w2',
     nameHtml: 'イギリス',
     emoji: '🏰',
-    sub: 'れんがの まちと あかい電話ボックス',
+    sub: 'れんがの まちと あかい でんわボックス',
     stages: [],
   },
   {

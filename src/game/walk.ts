@@ -86,3 +86,29 @@ export function placeDogAt(
   dog.group.rotation.set(0, Math.atan2(facing.x, facing.z), 0);
   dog.head.rotation.z = 0;
 }
+
+/**
+ * 固定アイソメカメラ(offset 10,10,10)へ向けて、最も近いアイソメ4方位へ向ける。
+ * カメラ角度自体は変えず、記念写真直前の見た目だけ整える。
+ */
+const ISO_CAMERA_YAWS = [
+  Math.PI / 4, // カメラ正面 (+x, +z)
+  (3 * Math.PI) / 4,
+  (-3 * Math.PI) / 4,
+  -Math.PI / 4,
+] as const;
+
+export function faceTowardIsometricCamera(dog: DogModel): void {
+  // renderer.ts の CAMERA_OFFSET (10,10,10) と同じ水平方向
+  const towardCamera = Math.atan2(10, 10);
+  let best = ISO_CAMERA_YAWS[0];
+  let bestDiff = Infinity;
+  for (const yaw of ISO_CAMERA_YAWS) {
+    const diff = Math.abs(shortestAngleTarget(towardCamera, yaw) - towardCamera);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = yaw;
+    }
+  }
+  dog.group.rotation.y = best;
+}

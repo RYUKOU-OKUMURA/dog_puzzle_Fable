@@ -48,11 +48,8 @@ export class StageRuntime {
       camera: sceneContext.camera,
       canvas,
     });
-    this.detach = attachCellTapListener(
-      canvas,
-      sceneContext.camera,
-      this.town.cellTiles,
-      (pos) => this.puzzle.handleCellTap(pos),
+    this.detach = attachCellTapListener(canvas, sceneContext.camera, this.town.cellTiles, (pos) =>
+      this.puzzle.handleCellTap(pos),
     );
   }
 

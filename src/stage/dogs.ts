@@ -123,4 +123,14 @@ export const DOGS: Record<string, DogInfo> = {
 };
 
 /** 図鑑に載る順番(相棒の柴犬 → ワールド1 → ワールド2の出会い順) */
-export const DOG_ORDER = ['shiba', 'akita', 'chin', 'spitz', 'kai', 'corgi', 'beagle', 'bulldog', 'golden'];
+export const DOG_ORDER = [
+  'shiba',
+  'akita',
+  'chin',
+  'spitz',
+  'kai',
+  'corgi',
+  'beagle',
+  'bulldog',
+  'golden',
+];

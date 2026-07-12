@@ -37,19 +37,13 @@ describe('道トークンの接続が core/panel と一致する', () => {
 
 describe('parseStageMap: 正常系', () => {
   it('小さい地図を正しくパースする', () => {
-    const parsed = parseStageMap([
-      '★ ─ ◎',
-      '.  □ .',
-      '木 . 花',
-    ]);
+    const parsed = parseStageMap(['★ ─ ◎', '.  □ .', '木 . 花']);
     expect(parsed.size).toEqual({ w: 3, h: 3 });
     // ★(0,0)の候補は東の道のみ → 90°
     expect(parsed.start).toEqual({ pos: { x: 0, z: 0 }, rotation: 90 });
     // ◎(2,0)の候補は西の道のみ → 270°
     expect(parsed.goal).toEqual({ pos: { x: 2, z: 0 }, rotation: 270 });
-    expect(parsed.fixedRoads).toEqual([
-      { pos: { x: 1, z: 0 }, kind: 'straight', rotation: 90 },
-    ]);
+    expect(parsed.fixedRoads).toEqual([{ pos: { x: 1, z: 0 }, kind: 'straight', rotation: 90 }]);
     expect(parsed.slots).toEqual([{ x: 1, z: 1 }]);
     expect(parsed.scenery).toEqual([
       { pos: { x: 0, z: 2 }, kind: 'tree' },
@@ -188,7 +182,13 @@ describe('defineStage: treats のパースと検証', () => {
   const baseMap = ['★ ─ ◎', '.  □ .'];
 
   it('おやつなし(treats 省略)は undefined', () => {
-    const stage = defineStage({ id: 't', name: 't', world: 'w2', encounterDogId: 'd', map: baseMap });
+    const stage = defineStage({
+      id: 't',
+      name: 't',
+      world: 'w2',
+      encounterDogId: 'd',
+      map: baseMap,
+    });
     expect(stage.treats).toBeUndefined();
   });
 

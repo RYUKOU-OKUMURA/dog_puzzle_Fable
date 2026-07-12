@@ -19,14 +19,7 @@ export interface Panel {
 }
 
 export type SceneryKind =
-  | 'house'
-  | 'building'
-  | 'tree'
-  | 'flower'
-  | 'pond'
-  | 'torii'
-  | 'brickHouse'
-  | 'phoneBox';
+  'house' | 'building' | 'tree' | 'flower' | 'pond' | 'torii' | 'brickHouse' | 'phoneBox';
 
 export interface StageDef {
   id: string;

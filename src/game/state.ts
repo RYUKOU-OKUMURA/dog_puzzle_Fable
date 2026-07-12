@@ -53,14 +53,7 @@ import { photoZoomForFriendScale } from './photo';
 import { celebrate, faceTowardIsometricCamera, headTilt, placeDogAt, walkAlong } from './walk';
 
 export type Phase =
-  | 'select'
-  | 'title'
-  | 'worldSelect'
-  | 'stageSelect'
-  | 'puzzle'
-  | 'walk'
-  | 'encounter'
-  | 'clear';
+  'select' | 'title' | 'worldSelect' | 'stageSelect' | 'puzzle' | 'walk' | 'encounter' | 'clear';
 
 interface GameDeps {
   sceneContext: SceneContext;
@@ -432,14 +425,7 @@ export class Game {
       };
       // route[0](スタート)は walkAlong の onArrive が発火しないため、歩き出しに食べる
       if (result.route.length > 0) await eatIfTreat(result.route[0]!);
-      await walkAlong(
-        this.shiba,
-        result.route,
-        stage,
-        animator,
-        0.42,
-        (cell) => eatIfTreat(cell),
-      );
+      await walkAlong(this.shiba, result.route, stage, animator, 0.42, (cell) => eatIfTreat(cell));
       await this.meetFriend();
       return;
     }

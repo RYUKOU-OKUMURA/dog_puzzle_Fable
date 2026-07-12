@@ -1,9 +1,4 @@
-import {
-  DEFAULT_ICON_ID,
-  isValidIconId,
-  type Profile,
-  type ProfileIconId,
-} from './profiles';
+import { DEFAULT_ICON_ID, isValidIconId, type Profile, type ProfileIconId } from './profiles';
 // 純粋な型・変換は convert から再エクスポート(既存の import 元が壊れないように)
 export {
   emptySave,
@@ -105,10 +100,7 @@ export function normalizeProfile(p: Partial<Profile> | null | undefined): Profil
   return {
     id: p && typeof p.id === 'string' ? p.id : '',
     name: p && typeof p.name === 'string' ? p.name : '',
-    iconId:
-      p && isValidIconId(p.iconId as string)
-        ? (p.iconId as ProfileIconId)
-        : DEFAULT_ICON_ID,
+    iconId: p && isValidIconId(p.iconId as string) ? (p.iconId as ProfileIconId) : DEFAULT_ICON_ID,
     createdAt: p && typeof p.createdAt === 'string' ? p.createdAt : '',
   };
 }
@@ -156,12 +148,7 @@ export function registerDog(
   persistSave(profileId, save);
 }
 
-export function setDogPhoto(
-  profileId: string,
-  save: SaveData,
-  dogId: string,
-  photo: string,
-): void {
+export function setDogPhoto(profileId: string, save: SaveData, dogId: string, photo: string): void {
   const entry = save.zukan[dogId];
   if (entry && !entry.photo) {
     entry.photo = photo;

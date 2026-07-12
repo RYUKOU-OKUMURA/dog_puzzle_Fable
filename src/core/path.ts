@@ -109,7 +109,10 @@ function stateKey(pos: GridPos, mask: number): string {
   return `${posKey(pos)}:${mask}`;
 }
 
-function buildRoute(parent: Map<string, { pos: GridPos; fromKey: string | null }>, endKey: string): GridPos[] {
+function buildRoute(
+  parent: Map<string, { pos: GridPos; fromKey: string | null }>,
+  endKey: string,
+): GridPos[] {
   const route: GridPos[] = [];
   let key: string | null = endKey;
   while (key) {

@@ -61,10 +61,7 @@ export function isStageUnlocked(world: WorldDef, ordinal: number, cleared: Clear
 }
 
 /** ステージidの所在(ワールド・順序)を検索 */
-export function locateStage(
-  worlds: readonly WorldDef[],
-  stageId: string,
-): StageLocation | null {
+export function locateStage(worlds: readonly WorldDef[], stageId: string): StageLocation | null {
   for (const world of worlds) {
     const ordinal = world.stages.findIndex((s) => s.id === stageId);
     if (ordinal >= 0) return { world, stage: world.stages[ordinal]!, ordinal };

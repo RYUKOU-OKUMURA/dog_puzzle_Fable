@@ -57,7 +57,9 @@ describe('isWorldUnlocked', () => {
     expect(isWorldUnlocked(WORLDS, 'w2', C(['w1-s1', 'w1-s2', 'w1-s3', 'w1-s4']))).toBe(true);
   });
   it('w3 は w2 の全クリアで解放(空だが解放自体は可能)', () => {
-    expect(isWorldUnlocked(WORLDS, 'w3', C(['w2-s1', 'w2-s2', 'w1-s1', 'w1-s2', 'w1-s3', 'w1-s4']))).toBe(true);
+    expect(
+      isWorldUnlocked(WORLDS, 'w3', C(['w2-s1', 'w2-s2', 'w1-s1', 'w1-s2', 'w1-s3', 'w1-s4'])),
+    ).toBe(true);
     expect(isWorldUnlocked(WORLDS, 'w3', C(['w2-s1']))).toBe(false);
   });
   it('不明なworldIdはfalse', () => {
@@ -85,7 +87,7 @@ describe('locateStage / prevWorld', () => {
   it('id → ワールドと順序', () => {
     expect(locateStage(WORLDS, 'w1-s3')).toEqual({
       world: WORLDS[0],
-      stage: (WORLDS[0]!.stages[2] as StageDef),
+      stage: WORLDS[0]!.stages[2] as StageDef,
       ordinal: 2,
     });
     expect(locateStage(WORLDS, 'w2-s1')!.world.id).toBe('w2');

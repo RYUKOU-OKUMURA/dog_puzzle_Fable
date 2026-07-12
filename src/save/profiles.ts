@@ -10,14 +10,7 @@ export const MAX_NAME_LENGTH = 8;
  * プロフィール作成時にえらぶ犬アイコンのid(固定セット)。
  * emoji/ラベルは ui/icons.ts の PROFILE_ICONS と対応する。
  */
-export const PROFILE_ICON_IDS = [
-  'shiba',
-  'puppy',
-  'poodle',
-  'shepherd',
-  'paw',
-  'bone',
-] as const;
+export const PROFILE_ICON_IDS = ['shiba', 'puppy', 'poodle', 'shepherd', 'paw', 'bone'] as const;
 export type ProfileIconId = (typeof PROFILE_ICON_IDS)[number];
 
 /** デフォルトのアイコン(v1移行プロフィール等) */
@@ -115,10 +108,7 @@ export function updateProfile(
   return list.map((p) => (p.id === id ? { ...p, ...patch } : p));
 }
 
-export function findProfile(
-  list: readonly Profile[],
-  id: string | null,
-): Profile | undefined {
+export function findProfile(list: readonly Profile[], id: string | null): Profile | undefined {
   if (id === null) return undefined;
   return list.find((p) => p.id === id);
 }

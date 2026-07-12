@@ -170,7 +170,13 @@ describe('findPath: どう組んでもおやつに届かない', () => {
 
 describe('findPath: おやつ3個(最大)の一本道', () => {
   it('3個のおやつをすべて通る', () => {
-    const grid = new Grid(stageWith([{ x: 1, z: 1 }, { x: 2, z: 1 }, { x: 2, z: 2 }]));
+    const grid = new Grid(
+      stageWith([
+        { x: 1, z: 1 },
+        { x: 2, z: 1 },
+        { x: 2, z: 2 },
+      ]),
+    );
     // (2,2)は経路外なので、(1,1)(2,1)の2個だけ取れる → complete=false
     grid.place({ x: 1, z: 1 }, 'straight', 90);
     grid.place({ x: 2, z: 1 }, 'straight', 90);
@@ -180,7 +186,13 @@ describe('findPath: おやつ3個(最大)の一本道', () => {
   });
 
   it('3個とも経路上にあれば complete', () => {
-    const grid = new Grid(stageWith([{ x: 1, z: 1 }, { x: 2, z: 1 }, { x: 0, z: 1 }]));
+    const grid = new Grid(
+      stageWith([
+        { x: 1, z: 1 },
+        { x: 2, z: 1 },
+        { x: 0, z: 1 },
+      ]),
+    );
     grid.place({ x: 1, z: 1 }, 'straight', 90);
     grid.place({ x: 2, z: 1 }, 'straight', 90);
     const result = findPath(grid);
@@ -189,10 +201,14 @@ describe('findPath: おやつ3個(最大)の一本道', () => {
   });
 });
 
-
 describe('findPath: 同一座標のおやつ重複は無害化される', () => {
   it('同じマスに2つおやつがあっても1つ扱いで complete になる', () => {
-    const grid = new Grid(stageWith([{ x: 1, z: 1 }, { x: 1, z: 1 }]));
+    const grid = new Grid(
+      stageWith([
+        { x: 1, z: 1 },
+        { x: 1, z: 1 },
+      ]),
+    );
     grid.place({ x: 1, z: 1 }, 'straight', 90);
     grid.place({ x: 2, z: 1 }, 'straight', 90);
     const result = findPath(grid);

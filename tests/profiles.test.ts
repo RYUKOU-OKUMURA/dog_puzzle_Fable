@@ -110,12 +110,7 @@ describe('プロフィール一覧の操作(純粋・非破壊)', () => {
   });
 
   it('addProfile は4つ目まで。5つ目で例外', () => {
-    const full = [
-      profile('p1'),
-      profile('p2'),
-      profile('p3'),
-      profile('p4'),
-    ];
+    const full = [profile('p1'), profile('p2'), profile('p3'), profile('p4')];
     expect(() => addProfile(full, profile('p5'))).toThrow(/4つまで/);
   });
 

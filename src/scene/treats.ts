@@ -43,38 +43,42 @@ export class TreatsView {
     const mesh = this.get(pos);
     if (!mesh) return Promise.resolve();
     this.meshes.delete(posKey(pos));
-    return animator.run(0.22, (t) => {
-      // ちょい跳ね → 縮んで消える
-      const hop = Math.sin(t * Math.PI) * 0.12;
-      mesh.position.y = TREAT_FLOAT_Y + hop;
-      const s = 1 - t;
-      mesh.scale.setScalar(Math.max(0, s));
-      mesh.rotation.y = t * Math.PI;
-    }).then(() => {
-      this.group.remove(mesh);
-      disposeObject(mesh);
-    });
+    return animator
+      .run(0.22, (t) => {
+        // ちょい跳ね → 縮んで消える
+        const hop = Math.sin(t * Math.PI) * 0.12;
+        mesh.position.y = TREAT_FLOAT_Y + hop;
+        const s = 1 - t;
+        mesh.scale.setScalar(Math.max(0, s));
+        mesh.rotation.y = t * Math.PI;
+      })
+      .then(() => {
+        this.group.remove(mesh);
+        disposeObject(mesh);
+      });
   }
 
   /** おやつ残り失敗時: 残ったおやつをやわらかくぷるぷるさせる(1回かぎり・短時間) */
   wiggle(animator: Animator): Promise<void> {
     const targets = [...this.meshes.values()];
     if (targets.length === 0) return Promise.resolve();
-    return animator.run(1.1, (t) => {
-      // 減衰する横ぶれ + ごく小さい拡大で「ここだよ」とやさしく知らせる
-      const decay = 1 - t;
-      const wobble = Math.sin(t * Math.PI * 8) * 0.18 * decay;
-      const pulse = 1 + Math.sin(t * Math.PI * 6) * 0.08 * decay;
-      for (const mesh of targets) {
-        mesh.rotation.z = wobble;
-        mesh.scale.setScalar(pulse);
-      }
-    }).then(() => {
-      for (const mesh of targets) {
-        mesh.rotation.z = 0;
-        mesh.scale.setScalar(1);
-      }
-    });
+    return animator
+      .run(1.1, (t) => {
+        // 減衰する横ぶれ + ごく小さい拡大で「ここだよ」とやさしく知らせる
+        const decay = 1 - t;
+        const wobble = Math.sin(t * Math.PI * 8) * 0.18 * decay;
+        const pulse = 1 + Math.sin(t * Math.PI * 6) * 0.08 * decay;
+        for (const mesh of targets) {
+          mesh.rotation.z = wobble;
+          mesh.scale.setScalar(pulse);
+        }
+      })
+      .then(() => {
+        for (const mesh of targets) {
+          mesh.rotation.z = 0;
+          mesh.scale.setScalar(1);
+        }
+      });
   }
 
   /** ステージ切り替え時に GPU リソースごと解放 */

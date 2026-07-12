@@ -1,11 +1,4 @@
-import type {
-  Dir,
-  GridPos,
-  PanelKind,
-  Rotation,
-  SceneryKind,
-  StageDef,
-} from '../core/types';
+import type { Dir, GridPos, PanelKind, Rotation, SceneryKind, StageDef } from '../core/types';
 import { MAX_TREATS, posKey } from '../core/types';
 
 /** defineStage への入力(テキスト地図フォーマット) */
@@ -76,14 +69,14 @@ const END_ROTATION: Readonly<Record<Dir, Rotation>> = {
 
 /** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜) */
 export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
-  '木': 'tree',
-  '家': 'house',
-  'ビ': 'building',
-  '花': 'flower',
-  '池': 'pond',
-  '鳥': 'torii',
-  'レ': 'brickHouse',
-  '電': 'phoneBox',
+  木: 'tree',
+  家: 'house',
+  ビ: 'building',
+  花: 'flower',
+  池: 'pond',
+  鳥: 'torii',
+  レ: 'brickHouse',
+  電: 'phoneBox',
 };
 
 /**
@@ -117,7 +110,10 @@ export function parseStageMap(map: string[]): ParsedStageMap {
 
   // 2. トークン分割(空白区切り)
   const grid: string[][] = map.map((row) =>
-    row.trim().split(/\s+/).filter((t) => t.length > 0),
+    row
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 0),
   );
 
   // 3. たて幅

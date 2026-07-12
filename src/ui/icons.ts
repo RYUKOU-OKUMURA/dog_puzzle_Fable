@@ -1,3 +1,5 @@
+import type { ProfileIconId } from '../save/profiles';
+
 const ROAD = '#f7efdf';
 const BG = '#a9dd9d';
 
@@ -28,3 +30,21 @@ export const PANEL_LABELS: Record<string, string> = {
   corner: 'まがりかど',
   tee: 'Tじろ',
 };
+
+/**
+ * プロフィール作成時にえらぶ犬アイコン。
+ * id は save/profiles.ts の PROFILE_ICON_IDS と対応(絵文字は子供向けのアクセント)。
+ */
+export const PROFILE_ICONS: ReadonlyArray<{ id: ProfileIconId; emoji: string; label: string }> = [
+  { id: 'shiba', emoji: '🐕', label: 'しばいぬ' },
+  { id: 'puppy', emoji: '🐶', label: 'こいぬ' },
+  { id: 'poodle', emoji: '🐩', label: 'プードル' },
+  { id: 'shepherd', emoji: '🦮', label: 'おおきな いぬ' },
+  { id: 'paw', emoji: '🐾', label: 'にくきゅう' },
+  { id: 'bone', emoji: '🦴', label: 'ほね' },
+];
+
+/** アイコンid → 絵文字(見つからなければ柴犬) */
+export function iconEmoji(id: string): string {
+  return PROFILE_ICONS.find((p) => p.id === id)?.emoji ?? '🐕';
+}

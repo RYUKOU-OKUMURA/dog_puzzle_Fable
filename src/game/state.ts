@@ -8,20 +8,40 @@ import type { SceneContext } from '../scene/renderer';
 import { createDog, type DogModel } from '../scene/shiba';
 import {
   countCollected,
+  deleteSave,
+  deleteV1,
+  emptySave,
+  loadProfileIndex,
+  loadSave,
   markCleared,
+  persistProfileIndex,
+  persistSave,
+  readV1Raw,
   registerDog,
   setDogPhoto,
   type SaveData,
 } from '../save/storage';
+import {
+  addProfile,
+  createProfile,
+  findProfile,
+  migrateFromV1,
+  nextProfileId,
+  removeProfile,
+  updateProfile,
+  type ProfileIconId,
+} from '../save/profiles';
 import { DOG_ORDER, DOGS } from '../stage/dogs';
+import { iconEmoji } from '../ui/icons';
 import type { Hud } from '../ui/hud';
+import type { ProfilesView } from '../ui/profiles';
 import type { Screens } from '../ui/screens';
 import type { ZukanView } from '../ui/zukan';
 import type { PuzzleController } from './puzzle';
 import type { Animator } from './tween';
 import { celebrate, headTilt, placeDogAt, walkAlong } from './walk';
 
-export type Phase = 'title' | 'puzzle' | 'walk' | 'encounter' | 'clear';
+export type Phase = 'select' | 'title' | 'puzzle' | 'walk' | 'encounter' | 'clear';
 
 interface GameDeps {
   sceneContext: SceneContext;
@@ -31,17 +51,19 @@ interface GameDeps {
   hud: Hud;
   screens: Screens;
   zukan: ZukanView;
+  profiles: ProfilesView;
   animator: Animator;
-  save: SaveData;
 }
 
-/** ゲーム全体の状態機械: TITLE → PUZZLE → WALK → ENCOUNTER → CLEAR */
+/** ゲーム全体の状態機械: SELECT → TITLE → PUZZLE → WALK → ENCOUNTER → CLEAR */
 export class Game {
   private readonly deps: GameDeps;
   private readonly shiba: DogModel;
   private friend: DogModel | null = null;
   private lastPhoto: string | null = null;
-  phase: Phase = 'title';
+  private profileId: string | null = null;
+  private save: SaveData = emptySave();
+  phase: Phase = 'select';
 
   constructor(deps: GameDeps) {
     this.deps = deps;
@@ -50,14 +72,130 @@ export class Game {
     this.resetShiba();
   }
 
-  /** 起動処理: 柴犬のポートレートを図鑑用に撮ってタイトルへ */
-  init(): void {
-    const { save, sceneContext, stage } = this.deps;
-    if (save.zukan['shiba'] && !save.zukan['shiba'].photo) {
-      const world = gridToWorld(stage.start.pos, stage);
-      setDogPhoto(save, 'shiba', sceneContext.capturePhotoAt(world.x, world.z, 4.2, 320));
+  /** 開発用フック参照 */
+  get activeSave(): SaveData {
+    return this.save;
+  }
+
+  get activeProfileId(): string | null {
+    return this.profileId;
+  }
+
+  /**
+   * 起動処理。プロフィール一覧を読み込み、初回(プロフィール0件)で v1 セーブがあれば
+ * 最初のプロフィールへ自動移行したうえで「だれが あそぶ?」画面へ。
+ */
+  boot(): void {
+    let index = loadProfileIndex();
+    if (index.profiles.length === 0) {
+      const migration = migrateFromV1(readV1Raw(), new Date().toISOString());
+      if (migration) {
+        // 移行データを最初のプロフィールへ保存するが、誰が遊ぶかは本人にえらばせる
+        // (activeId は置かない → 選択画面でタップしてはじめてセーブを読む)
+        index = {
+          ...index,
+          profiles: addProfile(index.profiles, migration.profile),
+        };
+        // 移行先の保存が両方成功したことを確認してから v1 を消す(保存できずに元だけ消す事故を防ぐ)
+        const indexOk = persistProfileIndex(index);
+        const saveOk = persistSave(migration.profile.id, migration.save);
+        if (indexOk && saveOk) deleteV1();
+      }
     }
+    this.showSelect(index);
+  }
+
+  /** 「だれが あそぶ?」画面 */
+  private showSelect(index = loadProfileIndex()): void {
+    this.phase = 'select';
+    this.removeFriend();
+    this.deps.puzzle.reset();
+    this.deps.puzzle.enabled = false;
+    this.deps.hud.setVisible(false);
+    this.resetShiba();
+    this.deps.screens.clear();
+    this.deps.profiles.show(
+      { profiles: index.profiles, activeId: index.activeId },
+      {
+        onSelect: (id) => this.selectProfile(id),
+        onCreate: (name, iconId) => this.createProfile(name, iconId),
+        onUpdate: (id, name, iconId) => this.updateProfile(id, name, iconId),
+        onDelete: (id) => this.deleteProfile(id),
+        onBack: () => this.toTitle(),
+      },
+    );
+  }
+
+  /** プロフィールをえらんで遊ぶ: セーブを読み込み、柴犬写真を保証してタイトルへ */
+  private selectProfile(id: string): void {
+    const index = loadProfileIndex();
+    persistProfileIndex({ ...index, activeId: id });
+    this.profileId = id;
+    this.save = loadSave(id);
+    this.ensureShibaPhoto();
     this.toTitle();
+  }
+
+  /** あたらしいプロフィールをつくり、その子で遊び始める */
+  private createProfile(name: string, iconId: ProfileIconId): void {
+    const index = loadProfileIndex();
+    const id = nextProfileId(index.profiles.map((p) => p.id));
+    const profile = createProfile({
+      id,
+      name,
+      iconId,
+      createdAt: new Date().toISOString(),
+    });
+    persistProfileIndex({ ...index, profiles: addProfile(index.profiles, profile) });
+    // 新規プロフィールのセーブ枠を空で確定する。
+    // 削除失敗などで残留した別人の save:v2:<id> を loadSave が読んでしまうのを防ぐ。
+    persistSave(id, emptySave());
+    this.selectProfile(id);
+  }
+
+  /** なまえ/アイコンをなおして選択画面に戻る */
+  private updateProfile(id: string, name: string, iconId: ProfileIconId): void {
+    const index = loadProfileIndex();
+    const profiles = updateProfile(index.profiles, id, { name, iconId });
+    persistProfileIndex({ ...index, profiles });
+    this.deps.profiles.refresh({ profiles, activeId: index.activeId });
+  }
+
+  /** プロフィールをけす(セーブも一緒に) */
+  private deleteProfile(id: string): void {
+    const index = loadProfileIndex();
+    const profiles = removeProfile(index.profiles, id);
+    const activeId = index.activeId === id ? null : index.activeId;
+    persistProfileIndex({ ...index, profiles, activeId });
+    deleteSave(id);
+    if (this.profileId === id) {
+      this.profileId = null;
+      this.save = emptySave();
+    }
+    this.deps.profiles.refresh({ profiles, activeId });
+  }
+
+  /** 選択中プロフィールのタイトル表示用データ(なければnull) */
+  private activeProfileChip(): { name: string; emoji: string } | null {
+    if (!this.profileId) return null;
+    const profile = findProfile(loadProfileIndex().profiles, this.profileId);
+    return profile ? { name: profile.name, emoji: iconEmoji(profile.iconId) } : null;
+  }
+
+  /** 相棒の柴犬のポートレートを図鑑用に撮る(プロフィール選択ごとに未撮影なら) */
+  private ensureShibaPhoto(): void {
+    if (!this.profileId) return;
+    const { sceneContext, stage } = this.deps;
+    const entry = this.save.zukan['shiba'];
+    if (entry && !entry.photo) {
+      const world = gridToWorld(stage.start.pos, stage);
+      setDogPhoto(
+        this.profileId,
+        this.save,
+        'shiba',
+        sceneContext.capturePhotoAt(world.x, world.z, 4.2, 320),
+      );
+    }
   }
 
   private get startFacing(): { x: number; z: number } {
@@ -83,10 +221,13 @@ export class Game {
     this.deps.puzzle.reset();
     this.deps.puzzle.enabled = false;
     this.deps.hud.setVisible(false);
+    this.deps.profiles.hide();
     this.resetShiba();
     this.deps.screens.showTitle(
       () => this.startPuzzle(),
       () => this.openZukan(),
+      this.activeProfileChip(),
+      () => this.showSelect(),
     );
   }
 
@@ -102,7 +243,7 @@ export class Game {
   }
 
   openZukan(): void {
-    this.deps.zukan.show(this.deps.save, () => {});
+    this.deps.zukan.show(this.save, () => {});
   }
 
   /** 「おさんぽスタート!」 */
@@ -191,13 +332,15 @@ export class Game {
   }
 
   private registerAndClear(): void {
-    const { save, stage, screens } = this.deps;
-    registerDog(save, stage.encounterDogId, this.lastPhoto);
-    markCleared(save, stage.id);
+    const { stage, screens } = this.deps;
+    // プロフィール未選択でここへ来ることはないが、型安全性のために抜ける
+    if (!this.profileId) return;
+    registerDog(this.profileId, this.save, stage.encounterDogId, this.lastPhoto);
+    markCleared(this.profileId, this.save, stage.id);
 
     this.phase = 'clear';
     screens.showClear(
-      countCollected(save),
+      countCollected(this.save),
       DOG_ORDER.length,
       () => this.startPuzzle(),
       () => this.openZukan(),

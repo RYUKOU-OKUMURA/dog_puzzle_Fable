@@ -7,9 +7,9 @@ import { BoardView } from './scene/boardView';
 import { attachCellTapListener, cellToScreen } from './scene/input';
 import { createSceneContext } from './scene/renderer';
 import { buildTown } from './scene/town';
-import { loadSave } from './save/storage';
 import { stage01 } from './stage/stage01';
 import { Hud } from './ui/hud';
+import { ProfilesView } from './ui/profiles';
 import { Screens } from './ui/screens';
 import { ZukanView } from './ui/zukan';
 
@@ -28,7 +28,7 @@ const boardView = new BoardView(sceneContext.scene, stage);
 
 const screens = new Screens(uiRoot);
 const zukan = new ZukanView(uiRoot);
-const save = loadSave();
+const profiles = new ProfilesView(uiRoot);
 
 const hud = new Hud(uiRoot, stage.name, {
   onSelectPanel: (kind) => puzzle.selectKind(kind),
@@ -56,15 +56,15 @@ const game = new Game({
   hud,
   screens,
   zukan,
+  profiles,
   animator,
-  save,
 });
 
 attachCellTapListener(canvas, sceneContext.camera, town.cellTiles, (pos) =>
   puzzle.handleCellTap(pos),
 );
 
-game.init();
+game.boot();
 
 // ブラウザ自動テスト用フック(開発時のみ)
 if (import.meta.env.DEV) {
@@ -72,7 +72,8 @@ if (import.meta.env.DEV) {
     __game: {
       grid,
       stage,
-      save,
+      save: () => game.activeSave,
+      profileId: () => game.activeProfileId,
       phase: () => game.phase,
       cellToScreen: (x: number, z: number) =>
         cellToScreen({ x, z }, stage, sceneContext.camera, canvas),

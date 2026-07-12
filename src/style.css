@@ -420,6 +420,288 @@ ruby rt {
   justify-content: center;
 }
 
+/* ---------- プロフィール選択/編集 ---------- */
+
+.profile-select-card {
+  max-width: min(560px, 94vw);
+}
+
+/* フォームが長い場合は画面内でスクロール。中央配置だがsafe-areaも尊重 */
+.profile-screen {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+.profile-back-btn {
+  margin-top: 4px;
+}
+
+.profile-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.profile-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--white);
+  border: 4px solid transparent;
+  box-shadow: var(--shadow);
+}
+
+.profile-tile.is-active {
+  border-color: var(--pink-strong);
+  background: var(--pink);
+}
+
+.profile-tile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 12px;
+  min-height: 96px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--brown);
+  border-radius: 12px;
+  transition: transform 0.1s;
+}
+
+.profile-tile-main:active {
+  transform: scale(0.94);
+}
+
+.profile-tile-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.profile-tile-name {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.profile-tile-badge {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--pink-strong);
+  background: var(--white);
+  border-radius: 999px;
+  padding: 3px 12px;
+  white-space: nowrap;
+}
+
+.profile-tile-edit {
+  align-self: center;
+  border: none;
+  background: var(--cream);
+  color: var(--brown-light);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 10px 18px;
+  min-height: 48px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.profile-tile-edit:active {
+  transform: scale(0.94);
+}
+
+.profile-tile-empty {
+  min-height: 150px;
+  border: 3px dashed var(--brown-light);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--brown-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.profile-tile-empty:active {
+  transform: scale(0.94);
+}
+
+.profile-tile-plus {
+  font-size: 34px;
+  line-height: 1;
+}
+
+/* タイトル画面の「だれがあそんでいるか」チップ */
+.profile-chip {
+  border: none;
+  background: var(--white);
+  color: var(--brown);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 10px 20px;
+  min-height: 48px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.profile-chip:active {
+  transform: scale(0.94);
+}
+
+.profile-chip-icon {
+  font-size: 22px;
+}
+
+.profile-chip-arrow {
+  color: var(--brown-light);
+}
+
+/* 作成/編集フォーム */
+.profile-form-card {
+  max-width: min(520px, 94vw);
+}
+
+.profile-field-label {
+  width: 100%;
+  text-align: left;
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brown-light);
+}
+
+.profile-input {
+  width: 100%;
+  min-height: 56px;
+  border: 3px solid var(--cream);
+  border-radius: 14px;
+  background: var(--white);
+  color: var(--brown);
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px 16px;
+  outline: none;
+}
+
+.profile-input:focus {
+  border-color: var(--pink-strong);
+}
+
+.profile-input::placeholder {
+  color: var(--brown-light);
+  font-weight: normal;
+  font-size: 16px;
+}
+
+.profile-form-error {
+  width: 100%;
+  min-height: 20px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--pink-strong);
+}
+
+.icon-picker {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.icon-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  min-height: 48px;
+  border: 3px solid transparent;
+  border-radius: 14px;
+  background: var(--cream);
+  color: var(--brown);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.icon-option.selected {
+  border-color: var(--pink-strong);
+  background: var(--pink);
+}
+
+.icon-option:active {
+  transform: scale(0.94);
+}
+
+.icon-option-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.icon-option-label {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.profile-button-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.profile-delete-btn {
+  width: 100%;
+  color: var(--brown-light);
+}
+
+.profile-delete-target {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.profile-delete-name {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.profile-delete-note {
+  width: 100%;
+  font-size: 15px;
+  line-height: 1.8;
+  text-align: center;
+  color: var(--brown);
+}
+
 /* ---------- 出会い演出 ---------- */
 
 .heart-burst {

@@ -1,5 +1,15 @@
 import type { DogInfo } from '../stage/dogs';
 
+/** ユーザー入力由来の文字列をHTMLに埋め込むときのエスケープ(名前はひらがな限定だが念のため) */
+function escapeText(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /** タイトル・出会い・クリアなどのフルスクリーンDOM画面 */
 export class Screens {
   private readonly root: HTMLElement;
@@ -20,12 +30,33 @@ export class Screens {
     this.current = null;
   }
 
-  showTitle(onStart: () => void, onZukan: () => void): void {
+  showTitle(
+    onStart: () => void,
+    onZukan: () => void,
+    profile: { name: string; emoji: string } | null,
+    onSwitchProfile: () => void,
+  ): void {
     const screen = document.createElement('div');
     screen.className = 'screen screen-sky';
-    screen.innerHTML =
-      `<div class="title-logo">しばちゃんの<br />おさんぽパズル</div>` +
-      `<div class="title-sub">みちを つないで、せかいの いぬと ともだちに なろう!</div>`;
+
+    // だれがあそんでいるかの表示 + 切替導線(タイトルの右上に固定)
+    if (profile) {
+      const who = document.createElement('button');
+      who.className = 'profile-chip';
+      who.innerHTML =
+        `<span class="profile-chip-icon">${profile.emoji}</span>` +
+        `<span class="profile-chip-name">${escapeText(profile.name)}</span>` +
+        `<span class="profile-chip-arrow">▸</span>`;
+      who.addEventListener('click', onSwitchProfile);
+      screen.append(who);
+    }
+
+    const logo = document.createElement('div');
+    logo.className = 'title-logo';
+    logo.innerHTML = 'しばちゃんの<br />おさんぽパズル';
+    const sub = document.createElement('div');
+    sub.className = 'title-sub';
+    sub.textContent = 'みちを つないで、せかいの いぬと ともだちに なろう!';
 
     const startButton = document.createElement('button');
     startButton.className = 'btn btn-big';
@@ -37,7 +68,7 @@ export class Screens {
     zukanButton.textContent = 'ずかんを みる';
     zukanButton.addEventListener('click', onZukan);
 
-    screen.append(startButton, zukanButton);
+    screen.append(logo, sub, startButton, zukanButton);
     this.mount(screen);
   }
 

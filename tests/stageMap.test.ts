@@ -1,0 +1,303 @@
+import { describe, expect, it } from 'vitest';
+import { connectionsOf } from '../src/core/panel';
+import { Grid } from '../src/core/grid';
+import type { GridPos, PanelKind, Rotation } from '../src/core/types';
+import {
+  ROAD_TOKENS,
+  SCENERY_TOKENS,
+  StageMapError,
+  defineStage,
+  parseStageMap,
+} from '../src/stage/stageMap';
+import { stage01 } from '../src/stage/stage01';
+
+// セル順の比較ヘルパ(順序に依存させない)
+const byGrid = (a: GridPos, b: GridPos): number => a.z - b.z || a.x - b.x;
+const byCell = <T extends { pos: GridPos }>(a: T, b: T): number =>
+  a.pos.z - b.pos.z || a.pos.x - b.pos.x;
+
+describe('道トークンの接続が core/panel と一致する', () => {
+  it('全トークンが connectionsOf と一致', () => {
+    for (const [token, road] of Object.entries(ROAD_TOKENS)) {
+      const expected = connectionsOf(road.kind, road.rotation).slice().sort();
+      expect(road.connections.slice().sort(), `トークン「${token}」`).toEqual(expected);
+    }
+  });
+  it('道トークンは10種', () => {
+    expect(Object.keys(ROAD_TOKENS).length).toBe(10);
+  });
+  it('添景トークンは6種', () => {
+    expect(Object.keys(SCENERY_TOKENS).length).toBe(6);
+  });
+});
+
+describe('parseStageMap: 正常系', () => {
+  it('小さい地図を正しくパースする', () => {
+    const parsed = parseStageMap([
+      '★ ─ ◎',
+      '.  □ .',
+      '木 . 花',
+    ]);
+    expect(parsed.size).toEqual({ w: 3, h: 3 });
+    // ★(0,0)の候補は東の道のみ → 90°
+    expect(parsed.start).toEqual({ pos: { x: 0, z: 0 }, rotation: 90 });
+    // ◎(2,0)の候補は西の道のみ → 270°
+    expect(parsed.goal).toEqual({ pos: { x: 2, z: 0 }, rotation: 270 });
+    expect(parsed.fixedRoads).toEqual([
+      { pos: { x: 1, z: 0 }, kind: 'straight', rotation: 90 },
+    ]);
+    expect(parsed.slots).toEqual([{ x: 1, z: 1 }]);
+    expect(parsed.scenery).toEqual([
+      { pos: { x: 0, z: 2 }, kind: 'tree' },
+      { pos: { x: 2, z: 2 }, kind: 'flower' },
+    ]);
+  });
+
+  it('全道グリフが正しい kind/rotation に routing される(キー入れ替え検出)', () => {
+    // 各グリフが Unicode の形の意味する (kind, rotation) に変換されることを独立に固定する。
+    // この期待値はグリフの形から独自に定義(ROAD_TOKENS からは読まない)。
+    // こうしないと ROAD_TOKENS のキー入れ替えバグを交叉検証だけで拾えない。
+    const cases: Array<[string, { kind: PanelKind; rotation: Rotation }]> = [
+      ['│', { kind: 'straight', rotation: 0 }], // 南北
+      ['─', { kind: 'straight', rotation: 90 }], // 東西
+      ['└', { kind: 'corner', rotation: 0 }], // 北・東
+      ['┌', { kind: 'corner', rotation: 90 }], // 東・南
+      ['┐', { kind: 'corner', rotation: 180 }], // 南・西
+      ['┘', { kind: 'corner', rotation: 270 }], // 北・西
+      ['┴', { kind: 'tee', rotation: 0 }], // 西・北・東
+      ['├', { kind: 'tee', rotation: 90 }], // 北・南・東
+      ['┬', { kind: 'tee', rotation: 180 }], // 西・東・南
+      ['┤', { kind: 'tee', rotation: 270 }], // 北・南・西
+    ];
+    for (const [glyph, expected] of cases) {
+      // グリフを3×3の中央(1,1)に置く。中央は四周とも盤内なので盤外チェックは通る。
+      // ★(0,1)の候補は中央の道のみ→東(90°)、◎(2,1)は西(270°)。
+      const parsed = parseStageMap(['. . .', `★ ${glyph} ◎`, '. . .']);
+      expect(parsed.fixedRoads, `グリフ「${glyph}」`).toEqual([
+        { pos: { x: 1, z: 1 }, kind: expected.kind, rotation: expected.rotation },
+      ]);
+      expect(parsed.start, `グリフ「${glyph}」の★向き`).toEqual({
+        pos: { x: 0, z: 1 },
+        rotation: 90,
+      });
+      expect(parsed.goal, `グリフ「${glyph}」の◎向き`).toEqual({
+        pos: { x: 2, z: 1 },
+        rotation: 270,
+      });
+    }
+  });
+});
+
+describe('parseStageMap: エラー系', () => {
+  it('空配列 → 地図なし', () => {
+    const fn = () => parseStageMap([]);
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/地図が ありません/);
+  });
+
+  it('空行 → よこはば0', () => {
+    expect(() => parseStageMap(['   '])).toThrow(/よこはばが 0/);
+  });
+
+  it('行長不一致', () => {
+    expect(() => parseStageMap(['. .', '.'])).toThrow(/ながさが そろっていません/);
+  });
+
+  it('よこ11マス', () => {
+    expect(() => parseStageMap(['. . . . . . . . . . .'])).toThrow(/よこ 11マス\)。最大 10 まで/);
+  });
+
+  it('たて11行', () => {
+    const elevenRows = Array.from({ length: 11 }, () => '.');
+    expect(() => parseStageMap(elevenRows)).toThrow(/たて 11マス\)。最大 10 まで/);
+  });
+
+  it('不明トークン', () => {
+    expect(() => parseStageMap(['★ ◎ X'])).toThrow(/「X」は つかえない きごう/);
+  });
+
+  it('スタート(★)なし', () => {
+    expect(() => parseStageMap(['. ◎'])).toThrow(/スタート\(★\)が ありません/);
+  });
+
+  it('スタート(★)が2つ', () => {
+    expect(() => parseStageMap(['★ ★ ◎'])).toThrow(/スタート\(★\)が 2つ以上/);
+  });
+
+  it('ゴール(◎)なし', () => {
+    expect(() => parseStageMap(['★ │'])).toThrow(/ゴール\(◎\)が ありません/);
+  });
+
+  it('ゴール(◎)が2つ', () => {
+    expect(() => parseStageMap(['★ ◎ ◎'])).toThrow(/ゴール\(◎\)が 2つ以上/);
+  });
+
+  it('スタート孤立(候補0)', () => {
+    expect(() => parseStageMap(['★ 花', '花 ◎'])).toThrow(
+      /スタート\(★\)の まわりに つながる みちが ありません/,
+    );
+  });
+
+  it('スタート曖昧(候補>1)', () => {
+    expect(() => parseStageMap(['★ □', '□ ◎'])).toThrow(/スタート\(★\)の むきが きめられません/);
+  });
+
+  it('ゴール孤立(候補0)', () => {
+    expect(() => parseStageMap(['★ ─ .', '木 . ◎'])).toThrow(
+      /ゴール\(◎\)の まわりに つながる みちが ありません/,
+    );
+  });
+
+  it('ゴール曖昧(候補>1)', () => {
+    expect(() => parseStageMap(['★ ─ .', '花 ◎ □'])).toThrow(/ゴール\(◎\)の むきが きめられません/);
+  });
+
+  it('道が盤外を向く', () => {
+    expect(() => parseStageMap(['★ │ ◎'])).toThrow(/みちが ばんめんの そとを むいています/);
+  });
+});
+
+describe('defineStage: StageMapInput を StageDef に変換する', () => {
+  it('メタ情報と空間情報が正しく受け継がれる', () => {
+    const stage = defineStage({
+      id: 'test',
+      name: 'テスト',
+      world: 'w1',
+      encounterDogId: 'dog',
+      map: ['★ ─ ◎'],
+    });
+    expect(stage.id).toBe('test');
+    expect(stage.name).toBe('テスト');
+    expect(stage.world).toBe('w1');
+    expect(stage.encounterDogId).toBe('dog');
+    expect(stage.size).toEqual({ w: 3, h: 1 });
+    expect(stage.start).toEqual({ pos: { x: 0, z: 0 }, rotation: 90 });
+    expect(stage.goal).toEqual({ pos: { x: 2, z: 0 }, rotation: 270 });
+    expect(stage.fixedRoads).toEqual([{ pos: { x: 1, z: 0 }, kind: 'straight', rotation: 90 }]);
+    expect(stage.treats).toBeUndefined();
+    expect(stage.palette).toBeUndefined();
+  });
+});
+
+// stage01 移行検証の期待値(移行前の手書き定義と完全一致するはず)
+const EXPECTED_SLOTS: GridPos[] = [
+  { x: 1, z: 4 },
+  { x: 4, z: 4 },
+  { x: 6, z: 4 },
+  { x: 4, z: 5 },
+  { x: 2, z: 3 },
+];
+const EXPECTED_ROADS: { pos: GridPos; kind: string; rotation: number }[] = [
+  { pos: { x: 1, z: 2 }, kind: 'straight', rotation: 0 },
+  { pos: { x: 1, z: 3 }, kind: 'straight', rotation: 0 },
+  { pos: { x: 2, z: 4 }, kind: 'straight', rotation: 90 },
+  { pos: { x: 3, z: 4 }, kind: 'straight', rotation: 90 },
+  { pos: { x: 4, z: 3 }, kind: 'straight', rotation: 0 },
+  { pos: { x: 5, z: 4 }, kind: 'straight', rotation: 90 },
+  { pos: { x: 6, z: 5 }, kind: 'straight', rotation: 0 },
+];
+const EXPECTED_SCENERY: { pos: GridPos; kind: string }[] = [
+  { pos: { x: 0, z: 0 }, kind: 'tree' },
+  { pos: { x: 1, z: 0 }, kind: 'building' },
+  { pos: { x: 3, z: 0 }, kind: 'house' },
+  { pos: { x: 5, z: 0 }, kind: 'tree' },
+  { pos: { x: 6, z: 0 }, kind: 'building' },
+  { pos: { x: 7, z: 0 }, kind: 'tree' },
+  { pos: { x: 0, z: 1 }, kind: 'flower' },
+  { pos: { x: 3, z: 1 }, kind: 'pond' },
+  { pos: { x: 5, z: 1 }, kind: 'house' },
+  { pos: { x: 7, z: 1 }, kind: 'tree' },
+  { pos: { x: 0, z: 2 }, kind: 'tree' },
+  { pos: { x: 2, z: 2 }, kind: 'house' },
+  { pos: { x: 4, z: 2 }, kind: 'flower' },
+  { pos: { x: 5, z: 2 }, kind: 'building' },
+  { pos: { x: 6, z: 2 }, kind: 'tree' },
+  { pos: { x: 0, z: 3 }, kind: 'flower' },
+  { pos: { x: 3, z: 3 }, kind: 'tree' },
+  { pos: { x: 5, z: 3 }, kind: 'house' },
+  { pos: { x: 6, z: 3 }, kind: 'building' },
+  { pos: { x: 7, z: 3 }, kind: 'tree' },
+  { pos: { x: 0, z: 4 }, kind: 'tree' },
+  { pos: { x: 7, z: 4 }, kind: 'house' },
+  { pos: { x: 0, z: 5 }, kind: 'house' },
+  { pos: { x: 2, z: 5 }, kind: 'tree' },
+  { pos: { x: 3, z: 5 }, kind: 'flower' },
+  { pos: { x: 5, z: 5 }, kind: 'tree' },
+  { pos: { x: 7, z: 5 }, kind: 'flower' },
+  { pos: { x: 0, z: 6 }, kind: 'tree' },
+  { pos: { x: 1, z: 6 }, kind: 'building' },
+  { pos: { x: 3, z: 6 }, kind: 'house' },
+  { pos: { x: 4, z: 6 }, kind: 'tree' },
+  { pos: { x: 5, z: 6 }, kind: 'flower' },
+  { pos: { x: 7, z: 6 }, kind: 'tree' },
+  { pos: { x: 0, z: 7 }, kind: 'flower' },
+  { pos: { x: 2, z: 7 }, kind: 'tree' },
+  { pos: { x: 4, z: 7 }, kind: 'house' },
+  { pos: { x: 5, z: 7 }, kind: 'tree' },
+  { pos: { x: 6, z: 7 }, kind: 'torii' },
+  { pos: { x: 7, z: 7 }, kind: 'tree' },
+];
+
+describe('stage01 のテキスト地図化(移行前と完全一致)', () => {
+  it('メタ情報が維持される(id/name)と新設(world)', () => {
+    expect(stage01.id).toBe('stage01');
+    expect(stage01.name).toBe('にほんの まち');
+    expect(stage01.world).toBe('w1');
+    expect(stage01.encounterDogId).toBe('akita');
+    expect(stage01.treats).toEqual([]);
+    expect(stage01.palette).toEqual(['straight', 'corner', 'tee']);
+  });
+
+  it('サイズが 8×8', () => {
+    expect(stage01.size).toEqual({ w: 8, h: 8 });
+  });
+
+  it('スタート・ゴールの位置と向きが完全一致', () => {
+    expect(stage01.start).toEqual({ pos: { x: 1, z: 1 }, rotation: 180 });
+    expect(stage01.goal).toEqual({ pos: { x: 6, z: 6 }, rotation: 0 });
+  });
+
+  it('スロット位置が完全一致(順序問わず)', () => {
+    expect([...stage01.slots].sort(byGrid)).toEqual([...EXPECTED_SLOTS].sort(byGrid));
+  });
+
+  it('固定道が完全一致(位置・種別・回転・順序問わず)', () => {
+    expect([...stage01.fixedRoads].sort(byCell)).toEqual([...EXPECTED_ROADS].sort(byCell));
+  });
+
+  it('添景が完全一致(位置・種別・順序問わず)', () => {
+    expect([...stage01.scenery].sort(byCell)).toEqual([...EXPECTED_SCENERY].sort(byCell));
+  });
+});
+
+describe('stage01 を Grid が無変更で消費できる', () => {
+  it('Grid が構築でき、固定道と端点が正しく置かれる', () => {
+    const grid = new Grid(stage01);
+    // スタート・ゴールが end パネル
+    expect(grid.panelAt(stage01.start.pos)).toMatchObject({
+      kind: 'end',
+      rotation: 180,
+      fixed: true,
+    });
+    expect(grid.panelAt(stage01.goal.pos)).toMatchObject({
+      kind: 'end',
+      rotation: 0,
+      fixed: true,
+    });
+    // 固定道7マスすべて固定パネル
+    for (const road of stage01.fixedRoads) {
+      expect(grid.panelAt(road.pos)).toMatchObject({
+        kind: road.kind,
+        rotation: road.rotation,
+        fixed: true,
+      });
+    }
+    // スロットは配置可能
+    for (const slot of stage01.slots) {
+      expect(grid.canPlace(slot)).toBe(true);
+    }
+    // 盤内判定
+    expect(grid.inBounds({ x: 0, z: 0 })).toBe(true);
+    expect(grid.inBounds({ x: 8, z: 8 })).toBe(false);
+  });
+});

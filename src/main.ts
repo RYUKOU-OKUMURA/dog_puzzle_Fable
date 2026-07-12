@@ -1,16 +1,13 @@
 import './style.css';
-import { Grid } from './core/grid';
-import { PuzzleController } from './game/puzzle';
 import { Game } from './game/state';
 import { Animator } from './game/tween';
-import { BoardView } from './scene/boardView';
-import { attachCellTapListener, cellToScreen } from './scene/input';
+import { cellToScreen } from './scene/input';
 import { createSceneContext } from './scene/renderer';
-import { buildTown } from './scene/town';
-import { stage01 } from './stage/stage01';
 import { Hud } from './ui/hud';
 import { ProfilesView } from './ui/profiles';
 import { Screens } from './ui/screens';
+import { StageSelectView } from './ui/stageSelect';
+import { WorldSelectView } from './ui/worldSelect';
 import { ZukanView } from './ui/zukan';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas')!;
@@ -20,49 +17,34 @@ const sceneContext = createSceneContext(canvas);
 const animator = new Animator();
 sceneContext.onFrame((dt) => animator.update(dt));
 
-const stage = stage01;
-const grid = new Grid(stage);
-const town = buildTown(stage);
-sceneContext.scene.add(town.group);
-const boardView = new BoardView(sceneContext.scene, stage);
-
+// UIビューはステージに依存しないのでここで生成。ステージ別の盤面は Game が内包する。
 const screens = new Screens(uiRoot);
 const zukan = new ZukanView(uiRoot);
 const profiles = new ProfilesView(uiRoot);
+const worldSelect = new WorldSelectView(uiRoot);
+const stageSelect = new StageSelectView(uiRoot);
 
-const hud = new Hud(uiRoot, stage.name, {
-  onSelectPanel: (kind) => puzzle.selectKind(kind),
+// HUDの操作はすべて Game 経由にする(Game がステージ差し替えに合わせて現在のパズルへ流す)。
+const hud = new Hud(uiRoot, {
+  onSelectPanel: (kind) => game.onSelectPanel(kind),
   onStart: () => void game.startWalk(),
   onZukan: () => game.openZukan(),
-  onRotate: (pos) => puzzle.rotatePanel(pos),
-  onRemove: (pos) => puzzle.removePanel(pos),
-});
-
-const puzzle = new PuzzleController({
-  grid,
-  stage,
-  town,
-  boardView,
-  hud,
-  camera: sceneContext.camera,
-  canvas,
+  onRotate: (pos) => game.onRotatePanel(pos),
+  onRemove: (pos) => game.onRemovePanel(pos),
+  onExit: () => game.onExitPuzzle(),
 });
 
 const game = new Game({
   sceneContext,
-  stage,
-  grid,
-  puzzle,
+  animator,
   hud,
   screens,
   zukan,
   profiles,
-  animator,
+  worldSelect,
+  stageSelect,
+  canvas,
 });
-
-attachCellTapListener(canvas, sceneContext.camera, town.cellTiles, (pos) =>
-  puzzle.handleCellTap(pos),
-);
 
 game.boot();
 
@@ -70,13 +52,16 @@ game.boot();
 if (import.meta.env.DEV) {
   Object.assign(window, {
     __game: {
-      grid,
-      stage,
       save: () => game.activeSave,
       profileId: () => game.activeProfileId,
       phase: () => game.phase,
-      cellToScreen: (x: number, z: number) =>
-        cellToScreen({ x, z }, stage, sceneContext.camera, canvas),
+      runtime: () => game.activeRuntime,
+      grid: () => game.activeRuntime?.grid,
+      stage: () => game.activeRuntime?.stage,
+      cellToScreen: (x: number, z: number) => {
+        const rt = game.activeRuntime;
+        return rt ? cellToScreen({ x, z }, rt.stage, sceneContext.camera, canvas) : null;
+      },
     },
   });
 }

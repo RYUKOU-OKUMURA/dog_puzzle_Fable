@@ -728,3 +728,183 @@ ruby rt {
 .hidden {
   display: none !important;
 }
+
+/* ---------- ワールド/ステージ選択 ---------- */
+
+/* フォームが長い場合は画面内でスクロール。中央配置だがsafe-areaも尊重 */
+.select-screen {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+.select-card {
+  max-width: min(560px, 94vw);
+  width: 100%;
+}
+
+.world-grid,
+.stage-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+/* 選択タイル共通(プロフィールタイルと同じあたたかいタッチ) */
+.select-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 120px;
+  padding: 14px 10px;
+  border-radius: 16px;
+  border: 4px solid transparent;
+  background: var(--white);
+  box-shadow: var(--shadow);
+  color: var(--brown);
+  font-family: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.select-tile:active {
+  transform: scale(0.94);
+}
+
+.select-tile.is-cleared {
+  border-color: var(--pink-strong);
+  background: var(--pink);
+}
+
+/* ロック中(タップ不可) */
+.select-tile.is-locked {
+  border: 3px dashed var(--brown-light);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--brown-light);
+  cursor: default;
+}
+
+.select-tile.is-locked:active {
+  transform: none;
+}
+
+.select-tile-emoji {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.select-tile-name {
+  font-size: 19px;
+  text-align: center;
+}
+
+.select-tile-sub {
+  font-size: 14px;
+  font-weight: normal;
+  color: var(--brown-light);
+  text-align: center;
+}
+
+.select-tile-badge {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--brown);
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 3px 12px;
+  white-space: nowrap;
+}
+
+.select-tile-badge.is-done {
+  color: var(--white);
+  background: var(--orange-strong);
+}
+
+.select-tile-badge.is-soon {
+  color: var(--white);
+  background: var(--brown-light);
+}
+
+/* ステージ選択のヘッダー */
+.stage-select-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: var(--pink);
+  border-radius: 16px;
+  padding: 12px 16px;
+}
+
+.stage-select-emoji {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.stage-select-name {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.stage-select-sub {
+  font-size: 14px;
+  color: var(--brown);
+}
+
+/* ステージタイル専用 */
+.stage-tile {
+  min-height: 130px;
+}
+
+.stage-tile-num {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--white);
+  background: var(--orange-strong);
+  border-radius: 999px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage-tile-name {
+  font-size: 16px;
+  text-align: center;
+}
+
+.stage-tile-bones {
+  font-size: 20px;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+
+.stage-tile-locked {
+  font-size: 15px;
+  text-align: center;
+}
+
+.coming-soon {
+  width: 100%;
+  font-size: 16px;
+  line-height: 1.9;
+  text-align: center;
+  background: var(--white);
+  border-radius: 14px;
+  padding: 20px 16px;
+}
+
+/* HUDの「もどる」は上部バーに収まるよう控えめに(タップターゲット48pxは厳守) */
+.hud-back {
+  font-size: 14px;
+  padding: 8px 18px;
+  min-height: 48px;
+}

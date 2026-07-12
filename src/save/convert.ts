@@ -58,3 +58,32 @@ export function parseV1Save(raw: string | null): SaveData | null {
     return null;
   }
 }
+
+/**
+ * ステージidのリネーム履歴(旧id → 現行id)。
+ * M4で stage01 を w1-s1 に統一したため、古いセーブのクリア記録を現行idへ書き換える。
+ * v1由来的な「stage01」も、M3時代のv2セーブの「stage01」もどちらもここで現行化される。
+ */
+const STAGE_ID_RENAMES: Readonly<Record<string, string>> = {
+  stage01: 'w1-s1',
+};
+
+/**
+ * クリア記録のステージidを現行idへ書き換える(冪等・純粋)。
+ * loadSave で毎回呼ぶことで、いつリネームが入っても古い記録が消えない。
+ * 変更がなければ同じオブジェクトを返す(無駄な再描画を避ける)。
+ */
+export function migrateStageIds(save: SaveData): SaveData {
+  let changed = false;
+  const next: Record<string, { cleared: boolean }> = {};
+  for (const [id, record] of Object.entries(save.stages)) {
+    const mapped = STAGE_ID_RENAMES[id] ?? id;
+    if (mapped !== id) changed = true;
+    // 旧id(例: stage01)と現行id(例: w1-s1)が両方記録されていた場合、
+    // どちらかでもクリア済みならクリア済みとして残す(書き戻しでクリアを落とし、
+    // 次ワールドを誤ってロックするのを防ぐ)。
+    const prev = next[mapped];
+    next[mapped] = { cleared: prev ? prev.cleared || record.cleared : record.cleared };
+  }
+  return changed ? { ...save, stages: next } : save;
+}

@@ -5,8 +5,15 @@ import {
   type ProfileIconId,
 } from './profiles';
 // 純粋な型・変換は convert から再エクスポート(既存の import 元が壊れないように)
-export { emptySave, ensureShiba, parseV1Save, type SaveData, type ZukanEntry } from './convert';
-import { emptySave, ensureShiba, type SaveData } from './convert';
+export {
+  emptySave,
+  ensureShiba,
+  migrateStageIds,
+  parseV1Save,
+  type SaveData,
+  type ZukanEntry,
+} from './convert';
+import { emptySave, ensureShiba, migrateStageIds, type SaveData } from './convert';
 
 /** フェーズ1の単一セーブ(プロフィール導入前)。移行元としてのみ参照する */
 const V1_KEY = 'shiba-osanpo-save-v1';
@@ -32,8 +39,10 @@ export function loadSave(profileId: string): SaveData {
   } catch {
     // 壊れたデータは捨てて新規スタート
   }
-  ensureShiba(save);
-  return save;
+  // 古いステージid(stage01等)のクリア記録を現行idへ移行(リネーム履歴を吸収)
+  const migrated = migrateStageIds(save);
+  ensureShiba(migrated);
+  return migrated;
 }
 
 /**

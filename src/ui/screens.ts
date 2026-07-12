@@ -102,9 +102,10 @@ export class Screens {
   showClear(
     collected: number,
     total: number,
-    onReplay: () => void,
+    hasNext: boolean,
+    onNext: () => void,
     onZukan: () => void,
-    onTitle: () => void,
+    onSelect: () => void,
   ): void {
     const screen = document.createElement('div');
     screen.className = 'screen screen-dim';
@@ -117,22 +118,33 @@ export class Screens {
       `おさんぽずかん <b>${collected}/${total} しゅるい</b> あつまったよ!` +
       `</div>`;
 
-    const replayButton = document.createElement('button');
-    replayButton.className = 'btn btn-big';
-    replayButton.textContent = 'もういちど あそぶ';
-    replayButton.addEventListener('click', onReplay);
+    // 主ボタンは「次のステージがあるか」で切り替え。ずかんボタンは共通。
+    const primaryButton = document.createElement('button');
+    primaryButton.className = 'btn btn-big';
+    if (hasNext) {
+      primaryButton.textContent = 'つぎの ステージへ ▸';
+      primaryButton.addEventListener('click', onNext);
+    } else {
+      // ワールドの最後のステージなど、次がない場合はステージ選択を主導線に
+      primaryButton.textContent = 'ステージを えらぶ';
+      primaryButton.addEventListener('click', onSelect);
+    }
+    card.append(primaryButton);
 
     const zukanButton = document.createElement('button');
     zukanButton.className = 'btn btn-pink';
     zukanButton.textContent = 'ずかんを みる';
     zukanButton.addEventListener('click', onZukan);
+    card.append(zukanButton);
 
-    const titleButton = document.createElement('button');
-    titleButton.className = 'btn btn-sub';
-    titleButton.textContent = 'タイトルに もどる';
-    titleButton.addEventListener('click', onTitle);
+    if (hasNext) {
+      const selectButton = document.createElement('button');
+      selectButton.className = 'btn btn-sub';
+      selectButton.textContent = 'ステージを えらぶ';
+      selectButton.addEventListener('click', onSelect);
+      card.append(selectButton);
+    }
 
-    card.append(replayButton, zukanButton, titleButton);
     screen.append(card);
     this.mount(screen);
   }

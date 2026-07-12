@@ -37,6 +37,8 @@ export interface StageDef {
   scenery: { pos: GridPos; kind: SceneryKind }[];
   /** ゴールで出会う犬種ID */
   encounterDogId: string;
+  /** 難度(🦴1〜5)。ステージ選択画面(M4)の表示と、難度表(plan.md)の照合に使う */
+  difficulty?: number;
   /** おやつのマス 'x,z'。M5(おやつ収集)から使用 */
   treats?: string[];
   /** プレイヤーが使えるパネル種。M6(パレット制限)から使用 */

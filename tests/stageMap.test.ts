@@ -9,7 +9,7 @@ import {
   defineStage,
   parseStageMap,
 } from '../src/stage/stageMap';
-import { stage01 } from '../src/stage/stage01';
+import { w1s1 } from '../src/stage/w1s1';
 
 // セル順の比較ヘルパ(順序に依存させない)
 const byGrid = (a: GridPos, b: GridPos): number => a.z - b.z || a.x - b.x;
@@ -238,54 +238,55 @@ const EXPECTED_SCENERY: { pos: GridPos; kind: string }[] = [
   { pos: { x: 7, z: 7 }, kind: 'tree' },
 ];
 
-describe('stage01 のテキスト地図化(移行前と完全一致)', () => {
-  it('メタ情報が維持される(id/name)と新設(world)', () => {
-    expect(stage01.id).toBe('stage01');
-    expect(stage01.name).toBe('にほんの まち');
-    expect(stage01.world).toBe('w1');
-    expect(stage01.encounterDogId).toBe('akita');
-    expect(stage01.treats).toEqual([]);
-    expect(stage01.palette).toEqual(['straight', 'corner', 'tee']);
+describe('w1s1 のテキスト地図(stage01 からリネーム、地図本体は移行前と完全一致)', () => {
+  it('メタ情報が w1-s1 へのリネームと難度追加を反映', () => {
+    expect(w1s1.id).toBe('w1-s1');
+    expect(w1s1.name).toBe('にほんの まち 1');
+    expect(w1s1.world).toBe('w1');
+    expect(w1s1.encounterDogId).toBe('akita');
+    expect(w1s1.difficulty).toBe(1);
+    expect(w1s1.treats).toEqual([]);
+    expect(w1s1.palette).toEqual(['straight', 'corner', 'tee']);
   });
 
   it('サイズが 8×8', () => {
-    expect(stage01.size).toEqual({ w: 8, h: 8 });
+    expect(w1s1.size).toEqual({ w: 8, h: 8 });
   });
 
   it('スタート・ゴールの位置と向きが完全一致', () => {
-    expect(stage01.start).toEqual({ pos: { x: 1, z: 1 }, rotation: 180 });
-    expect(stage01.goal).toEqual({ pos: { x: 6, z: 6 }, rotation: 0 });
+    expect(w1s1.start).toEqual({ pos: { x: 1, z: 1 }, rotation: 180 });
+    expect(w1s1.goal).toEqual({ pos: { x: 6, z: 6 }, rotation: 0 });
   });
 
   it('スロット位置が完全一致(順序問わず)', () => {
-    expect([...stage01.slots].sort(byGrid)).toEqual([...EXPECTED_SLOTS].sort(byGrid));
+    expect([...w1s1.slots].sort(byGrid)).toEqual([...EXPECTED_SLOTS].sort(byGrid));
   });
 
   it('固定道が完全一致(位置・種別・回転・順序問わず)', () => {
-    expect([...stage01.fixedRoads].sort(byCell)).toEqual([...EXPECTED_ROADS].sort(byCell));
+    expect([...w1s1.fixedRoads].sort(byCell)).toEqual([...EXPECTED_ROADS].sort(byCell));
   });
 
   it('添景が完全一致(位置・種別・順序問わず)', () => {
-    expect([...stage01.scenery].sort(byCell)).toEqual([...EXPECTED_SCENERY].sort(byCell));
+    expect([...w1s1.scenery].sort(byCell)).toEqual([...EXPECTED_SCENERY].sort(byCell));
   });
 });
 
-describe('stage01 を Grid が無変更で消費できる', () => {
+describe('w1s1 を Grid が無変更で消費できる', () => {
   it('Grid が構築でき、固定道と端点が正しく置かれる', () => {
-    const grid = new Grid(stage01);
+    const grid = new Grid(w1s1);
     // スタート・ゴールが end パネル
-    expect(grid.panelAt(stage01.start.pos)).toMatchObject({
+    expect(grid.panelAt(w1s1.start.pos)).toMatchObject({
       kind: 'end',
       rotation: 180,
       fixed: true,
     });
-    expect(grid.panelAt(stage01.goal.pos)).toMatchObject({
+    expect(grid.panelAt(w1s1.goal.pos)).toMatchObject({
       kind: 'end',
       rotation: 0,
       fixed: true,
     });
     // 固定道7マスすべて固定パネル
-    for (const road of stage01.fixedRoads) {
+    for (const road of w1s1.fixedRoads) {
       expect(grid.panelAt(road.pos)).toMatchObject({
         kind: road.kind,
         rotation: road.rotation,
@@ -293,7 +294,7 @@ describe('stage01 を Grid が無変更で消費できる', () => {
       });
     }
     // スロットは配置可能
-    for (const slot of stage01.slots) {
+    for (const slot of w1s1.slots) {
       expect(grid.canPlace(slot)).toBe(true);
     }
     // 盤内判定

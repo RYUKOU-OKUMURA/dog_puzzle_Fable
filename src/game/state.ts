@@ -1,10 +1,9 @@
-import type { Grid } from '../core/grid';
 import { connectionsOf, DIR_OFFSET, OPPOSITE } from '../core/panel';
 import { findPath } from '../core/path';
-import type { StageDef } from '../core/types';
-import { gridToWorld } from '../scene/coords';
-import { cellToScreen } from '../scene/input';
+import type { GridPos, PanelKind, StageDef } from '../core/types';
 import type { SceneContext } from '../scene/renderer';
+import { cellToScreen } from '../scene/input';
+import { gridToWorld } from '../scene/coords';
 import { createDog, type DogModel } from '../scene/shiba';
 import {
   countCollected,
@@ -31,31 +30,50 @@ import {
   updateProfile,
   type ProfileIconId,
 } from '../save/profiles';
+import { WORLDS } from '../stage/catalog';
+import {
+  clearedCountInWorld,
+  isStageUnlocked,
+  isWorldUnlocked,
+  locateStage,
+  nextStageInWorld,
+} from '../stage/progress';
 import { DOG_ORDER, DOGS } from '../stage/dogs';
 import { iconEmoji } from '../ui/icons';
 import type { Hud } from '../ui/hud';
 import type { ProfilesView } from '../ui/profiles';
 import type { Screens } from '../ui/screens';
+import type { StageSelectView } from '../ui/stageSelect';
+import type { WorldSelectView } from '../ui/worldSelect';
 import type { ZukanView } from '../ui/zukan';
-import type { PuzzleController } from './puzzle';
+import { StageRuntime } from './stageRuntime';
 import type { Animator } from './tween';
 import { celebrate, headTilt, placeDogAt, walkAlong } from './walk';
 
-export type Phase = 'select' | 'title' | 'puzzle' | 'walk' | 'encounter' | 'clear';
+export type Phase =
+  | 'select'
+  | 'title'
+  | 'worldSelect'
+  | 'stageSelect'
+  | 'puzzle'
+  | 'walk'
+  | 'encounter'
+  | 'clear';
 
 interface GameDeps {
   sceneContext: SceneContext;
-  stage: StageDef;
-  grid: Grid;
-  puzzle: PuzzleController;
+  animator: Animator;
   hud: Hud;
   screens: Screens;
   zukan: ZukanView;
   profiles: ProfilesView;
-  animator: Animator;
+  worldSelect: WorldSelectView;
+  stageSelect: StageSelectView;
+  canvas: HTMLCanvasElement;
 }
 
-/** ゲーム全体の状態機械: SELECT → TITLE → PUZZLE → WALK → ENCOUNTER → CLEAR */
+/** ゲーム全体の状態機械:
+ *  SELECT → TITLE → WORLD_SELECT → STAGE_SELECT → PUZZLE → WALK → ENCOUNTER → CLEAR */
 export class Game {
   private readonly deps: GameDeps;
   private readonly shiba: DogModel;
@@ -63,13 +81,18 @@ export class Game {
   private lastPhoto: string | null = null;
   private profileId: string | null = null;
   private save: SaveData = emptySave();
+  /** いま遊んでいるステージの実行時オブジェクト(ステージ選択で差し替え) */
+  private runtime: StageRuntime | null = null;
+  /** ステージ選択の「もどる」先のワールド */
+  private currentWorldId: string | null = null;
   phase: Phase = 'select';
 
   constructor(deps: GameDeps) {
     this.deps = deps;
     this.shiba = createDog(DOGS['shiba']!.furColor, 1);
     deps.sceneContext.scene.add(this.shiba.group);
-    this.resetShiba();
+    // タイトル背景のために最初のステージ(W1-1)を読み込んでおく
+    this.loadStage(WORLDS[0]!.stages[0]!);
   }
 
   /** 開発用フック参照 */
@@ -81,10 +104,19 @@ export class Game {
     return this.profileId;
   }
 
+  get activeRuntime(): StageRuntime | null {
+    return this.runtime;
+  }
+
+  /** クリア済みステージidの集合(進行判定用) */
+  private clearedSet(): Set<string> {
+    return new Set(Object.keys(this.save.stages).filter((id) => this.save.stages[id]?.cleared));
+  }
+
   /**
    * 起動処理。プロフィール一覧を読み込み、初回(プロフィール0件)で v1 セーブがあれば
- * 最初のプロフィールへ自動移行したうえで「だれが あそぶ?」画面へ。
- */
+   * 最初のプロフィールへ自動移行したうえで「だれが あそぶ?」画面へ。
+   */
   boot(): void {
     let index = loadProfileIndex();
     if (index.profiles.length === 0) {
@@ -105,15 +137,16 @@ export class Game {
     this.showSelect(index);
   }
 
+  // ---------- プロフィール選択 ----------
+
   /** 「だれが あそぶ?」画面 */
   private showSelect(index = loadProfileIndex()): void {
     this.phase = 'select';
     this.removeFriend();
-    this.deps.puzzle.reset();
-    this.deps.puzzle.enabled = false;
+    this.standbyPuzzle();
     this.deps.hud.setVisible(false);
     this.resetShiba();
-    this.deps.screens.clear();
+    this.clearOverlays();
     this.deps.profiles.show(
       { profiles: index.profiles, activeId: index.activeId },
       {
@@ -184,8 +217,9 @@ export class Game {
 
   /** 相棒の柴犬のポートレートを図鑑用に撮る(プロフィール選択ごとに未撮影なら) */
   private ensureShibaPhoto(): void {
-    if (!this.profileId) return;
-    const { sceneContext, stage } = this.deps;
+    if (!this.profileId || !this.runtime) return;
+    const { sceneContext } = this.deps;
+    const stage = this.runtime.stage;
     const entry = this.save.zukan['shiba'];
     if (entry && !entry.photo) {
       const world = gridToWorld(stage.start.pos, stage);
@@ -198,14 +232,40 @@ export class Game {
     }
   }
 
-  private get startFacing(): { x: number; z: number } {
-    const { stage } = this.deps;
-    const exitDir = connectionsOf('end', stage.start.rotation)[0]!;
-    return DIR_OFFSET[exitDir];
+  // ---------- ステージ実行時 ----------
+
+  /** 指定ステージを読み込み、盤面を実行可能な状態にする(直前のステージは破棄) */
+  private loadStage(stage: StageDef): void {
+    this.runtime?.dispose();
+    this.runtime = new StageRuntime(stage, {
+      sceneContext: this.deps.sceneContext,
+      hud: this.deps.hud,
+      canvas: this.deps.canvas,
+    });
+    this.deps.hud.updateStageName(stage.name);
+    this.resetShiba();
+  }
+
+  /** パズルを操作不能にして盤面をリセット(選択画面へ出る前の片付け) */
+  private standbyPuzzle(): void {
+    if (!this.runtime) return;
+    this.runtime.reset();
+    this.runtime.puzzle.enabled = false;
+  }
+
+  /** 全画面系DOMオーバーレイを片付ける(Screens と ワールド/ステージ選択の3系統を消す) */
+  private clearOverlays(): void {
+    this.deps.screens.clear();
+    this.deps.worldSelect.hide();
+    this.deps.stageSelect.hide();
   }
 
   private resetShiba(): void {
-    placeDogAt(this.shiba, this.deps.stage.start.pos, this.deps.stage, this.startFacing);
+    const runtime = this.runtime;
+    if (!runtime) return;
+    const stage = runtime.stage;
+    const exitDir = connectionsOf('end', stage.start.rotation)[0]!;
+    placeDogAt(this.shiba, stage.start.pos, stage, DIR_OFFSET[exitDir]);
   }
 
   private removeFriend(): void {
@@ -215,31 +275,125 @@ export class Game {
     }
   }
 
+  // ---------- タイトル → ワールド/ステージ選択 ----------
+
   toTitle(): void {
     this.phase = 'title';
     this.removeFriend();
-    this.deps.puzzle.reset();
-    this.deps.puzzle.enabled = false;
+    this.standbyPuzzle();
     this.deps.hud.setVisible(false);
+    this.clearOverlays();
     this.deps.profiles.hide();
     this.resetShiba();
     this.deps.screens.showTitle(
-      () => this.startPuzzle(),
+      () => this.showWorldSelect(),
       () => this.openZukan(),
       this.activeProfileChip(),
       () => this.showSelect(),
     );
   }
 
+  /** ワールド選択画面(世界地図風) */
+  private showWorldSelect(): void {
+    this.phase = 'worldSelect';
+    this.removeFriend();
+    this.standbyPuzzle();
+    this.deps.hud.setVisible(false);
+    this.resetShiba();
+    this.clearOverlays();
+    const cleared = this.clearedSet();
+    this.deps.worldSelect.show(
+      WORLDS.map((world) => ({
+        id: world.id,
+        nameHtml: world.nameHtml,
+        emoji: world.emoji,
+        sub: world.sub,
+        unlocked: isWorldUnlocked(WORLDS, world.id, cleared),
+        implemented: world.stages.length > 0,
+        clearedCount: clearedCountInWorld(world, cleared),
+        total: world.stages.length,
+      })),
+      {
+        onPick: (worldId) => this.enterWorld(worldId),
+        onBack: () => this.toTitle(),
+      },
+    );
+  }
+
+  /** 選ばれたワールドのステージ選択へ(未解放は念のため弾く) */
+  private enterWorld(worldId: string): void {
+    if (!isWorldUnlocked(WORLDS, worldId, this.clearedSet())) return;
+    this.showStageSelect(worldId);
+  }
+
+  /** ステージ選択画面(4ステージ + 🦴 + クリア済み + ロック) */
+  private showStageSelect(worldId: string): void {
+    const world = WORLDS.find((w) => w.id === worldId);
+    if (!world) return;
+    this.currentWorldId = worldId;
+    this.phase = 'stageSelect';
+    this.removeFriend();
+    this.standbyPuzzle();
+    this.deps.hud.setVisible(false);
+    this.resetShiba();
+    this.clearOverlays();
+    const cleared = this.clearedSet();
+    this.deps.stageSelect.show(
+      { nameHtml: world.nameHtml, emoji: world.emoji, sub: world.sub },
+      world.stages.map((stage, ordinal) => ({
+        id: stage.id,
+        name: stage.name,
+        difficulty: stage.difficulty ?? 1,
+        cleared: cleared.has(stage.id),
+        unlocked: isStageUnlocked(world, ordinal, cleared),
+        ordinal: ordinal + 1,
+      })),
+      {
+        onPick: (stageId) => this.enterStage(stageId),
+        onBack: () => this.showWorldSelect(),
+      },
+    );
+  }
+
+  /** 選ばれたステージを読み込んでパズル開始(未解放は念のため弾く) */
+  private enterStage(stageId: string): void {
+    const loc = locateStage(WORLDS, stageId);
+    if (!loc) return;
+    if (!isStageUnlocked(loc.world, loc.ordinal, this.clearedSet())) return;
+    this.loadStage(loc.stage);
+    this.startPuzzle();
+  }
+
+  // ---------- パズルフェーズ ----------
+
   startPuzzle(): void {
+    if (!this.runtime) return;
     this.phase = 'puzzle';
     this.removeFriend();
-    this.deps.puzzle.reset();
-    this.deps.screens.clear();
+    this.runtime.reset();
+    this.clearOverlays();
     this.resetShiba();
     this.deps.hud.setVisible(true);
-    this.deps.puzzle.enabled = true;
+    this.runtime.puzzle.enabled = true;
     this.deps.hud.showToast('みちパネルで おうちから ゴールまで つなげてね!', 3200);
+  }
+
+  /** HUD経由の操作を現在のステージへ流す(ステージ差し替えに追従させるため Game を経由) */
+  onSelectPanel(kind: PanelKind | null): void {
+    this.runtime?.puzzle.selectKind(kind);
+  }
+
+  onRotatePanel(pos: GridPos): void {
+    this.runtime?.puzzle.rotatePanel(pos);
+  }
+
+  onRemovePanel(pos: GridPos): void {
+    this.runtime?.puzzle.removePanel(pos);
+  }
+
+  /** パズル中の「もどる」→ ステージ選択へ(配置は保存されないので途中退出でも安心) */
+  onExitPuzzle(): void {
+    this.showStageSelect(this.currentWorldId ?? WORLDS[0]!.id);
   }
 
   openZukan(): void {
@@ -248,8 +402,9 @@ export class Game {
 
   /** 「おさんぽスタート!」 */
   async startWalk(): Promise<void> {
-    if (this.phase !== 'puzzle') return;
-    const { grid, hud, puzzle, stage, animator } = this.deps;
+    if (this.phase !== 'puzzle' || !this.runtime) return;
+    const { grid, stage, puzzle } = this.runtime;
+    const { hud, animator } = this.deps;
 
     const result = findPath(grid);
     this.phase = 'walk';
@@ -258,7 +413,7 @@ export class Game {
     hud.setVisible(false);
 
     if (result.complete) {
-      await walkAlong(this.shiba, result.route, stage, this.deps.animator);
+      await walkAlong(this.shiba, result.route, stage, animator);
       await this.meetFriend();
       return;
     }
@@ -280,7 +435,8 @@ export class Game {
 
   /** ゴールでの出会い → 記念写真 → 出会いカード */
   private async meetFriend(): Promise<void> {
-    const { stage, sceneContext, animator, screens } = this.deps;
+    const { sceneContext, animator, screens } = this.deps;
+    const stage = this.runtime!.stage;
     const dogInfo = DOGS[stage.encounterDogId]!;
 
     // ゴールの「道と反対側」に新しい友だちが現れる
@@ -332,19 +488,35 @@ export class Game {
   }
 
   private registerAndClear(): void {
-    const { stage, screens } = this.deps;
-    // プロフィール未選択でここへ来ることはないが、型安全性のために抜ける
-    if (!this.profileId) return;
+    if (!this.runtime || !this.profileId) return;
+    const { screens } = this.deps;
+    const stage = this.runtime.stage;
+    // プロフィール未選択でここへ来ることはないが、型安全性のために抜ける(上でガード済み)
     registerDog(this.profileId, this.save, stage.encounterDogId, this.lastPhoto);
     markCleared(this.profileId, this.save, stage.id);
 
     this.phase = 'clear';
+    const next = nextStageInWorld(WORLDS, stage.id);
+    const backWorldId = this.currentWorldId ?? WORLDS[0]!.id;
     screens.showClear(
       countCollected(this.save),
       DOG_ORDER.length,
-      () => this.startPuzzle(),
+      next !== null,
+      () => this.goNextStage(),
       () => this.openZukan(),
-      () => this.toTitle(),
+      () => this.showStageSelect(backWorldId),
     );
+  }
+
+  /** クリア後「つぎのステージへ」: 同ワールドの次があれば突入、なければステージ選択へ */
+  private goNextStage(): void {
+    if (!this.runtime) return;
+    const next = nextStageInWorld(WORLDS, this.runtime.stage.id);
+    if (!next) {
+      this.showStageSelect(this.currentWorldId ?? WORLDS[0]!.id);
+      return;
+    }
+    this.loadStage(next.stage);
+    this.startPuzzle();
   }
 }

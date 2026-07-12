@@ -16,6 +16,8 @@ export interface StageMapInput {
   world: string;
   /** ゴールで出会う犬種ID */
   encounterDogId: string;
+  /** 難度(🦴1〜5)。ステージ選択画面(M4)の表示に使う */
+  difficulty?: number;
   /** 1行=1マス行、トークンは空白区切り。行・列数は自由(最大10×10) */
   map: string[];
   /** おやつのマス 'x,z'。M5(おやつ収集)から使用。M1では保持のみ */
@@ -252,6 +254,7 @@ export function defineStage(input: StageMapInput): StageDef {
     slots: parsed.slots,
     scenery: parsed.scenery,
     encounterDogId: input.encounterDogId,
+    difficulty: input.difficulty,
     treats: input.treats,
     palette: input.palette,
   };

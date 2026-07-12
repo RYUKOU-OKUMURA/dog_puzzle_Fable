@@ -3,6 +3,7 @@ import type { Grid } from '../core/grid';
 import type { GridPos, StageDef } from '../core/types';
 import { posKey } from '../core/types';
 import { gridToWorld } from './coords';
+import { disposeObject } from './dispose';
 import { createPanelMesh } from './panelMesh';
 
 /**
@@ -26,6 +27,8 @@ export class BoardView {
     const existing = this.meshes.get(key);
     if (existing) {
       this.parent.remove(existing);
+      // 回転・取り外し→再配置で古いメッシュのジオメトリ/マテリアルも解放する
+      disposeObject(existing);
       this.meshes.delete(key);
     }
 
@@ -43,10 +46,21 @@ export class BoardView {
   clear(grid: Grid): void {
     for (const [key, mesh] of this.meshes) {
       this.parent.remove(mesh);
+      disposeObject(mesh);
       const [x, z] = key.split(',').map(Number);
       grid.remove({ x: x!, z: z! });
     }
     this.meshes.clear();
+  }
+
+  /** ステージ切り替え時にプレイヤーパネルを破棄して GPU リソースも解放する */
+  disposeAll(): void {
+    for (const mesh of this.meshes.values()) {
+      this.parent.remove(mesh);
+      disposeObject(mesh);
+    }
+    this.meshes.clear();
+    this.hidePreview();
   }
 
   showPreview(pos: GridPos, kind: Parameters<typeof createPanelMesh>[0]): void {
@@ -60,6 +74,7 @@ export class BoardView {
   hidePreview(): void {
     if (this.preview) {
       this.parent.remove(this.preview);
+      disposeObject(this.preview);
       this.preview = null;
     }
   }

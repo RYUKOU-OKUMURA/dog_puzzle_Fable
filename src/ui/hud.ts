@@ -8,6 +8,8 @@ export interface HudCallbacks {
   onZukan(): void;
   onRotate(pos: GridPos): void;
   onRemove(pos: GridPos): void;
+  /** パズル中にステージ選択へ戻る */
+  onExit(): void;
 }
 
 /** パズル中の操作UI(パレット・スタートボタン・パネル操作ポップアップ) */
@@ -16,26 +18,33 @@ export class Hud {
   private readonly callbacks: HudCallbacks;
   private readonly top: HTMLDivElement;
   private readonly bottom: HTMLDivElement;
+  private readonly stageName: HTMLDivElement;
   private readonly paletteButtons = new Map<PanelKind, HTMLButtonElement>();
   private popup: HTMLDivElement | null = null;
   private popupPos: GridPos | null = null;
   private toastElement: HTMLDivElement | null = null;
   private toastTimer: number | undefined;
 
-  constructor(root: HTMLElement, stageName: string, callbacks: HudCallbacks) {
+  constructor(root: HTMLElement, callbacks: HudCallbacks) {
     this.root = root;
     this.callbacks = callbacks;
 
     this.top = document.createElement('div');
     this.top.id = 'hud-top';
-    const name = document.createElement('div');
-    name.className = 'stage-name';
-    name.textContent = stageName;
+
+    const backButton = document.createElement('button');
+    backButton.className = 'btn btn-sub hud-back';
+    backButton.textContent = 'もどる';
+    backButton.addEventListener('click', () => callbacks.onExit());
+
+    this.stageName = document.createElement('div');
+    this.stageName.className = 'stage-name';
+
     const zukanButton = document.createElement('button');
     zukanButton.className = 'btn btn-pink';
     zukanButton.textContent = 'ずかん 🐾';
     zukanButton.addEventListener('click', () => callbacks.onZukan());
-    this.top.append(name, zukanButton);
+    this.top.append(backButton, this.stageName, zukanButton);
 
     this.bottom = document.createElement('div');
     this.bottom.id = 'hud-bottom';
@@ -67,6 +76,11 @@ export class Hud {
     this.top.classList.toggle('hidden', !visible);
     this.bottom.classList.toggle('hidden', !visible);
     if (!visible) this.hidePanelPopup();
+  }
+
+  /** ステージ切り替えで上部のステージ名を差し替える */
+  updateStageName(name: string): void {
+    this.stageName.textContent = name;
   }
 
   setSelected(kind: PanelKind | null): void {

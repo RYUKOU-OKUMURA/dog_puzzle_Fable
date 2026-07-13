@@ -45,6 +45,9 @@ export class Grid {
 
   place(pos: GridPos, kind: PanelKind, rotation: Rotation = 0): boolean {
     if (!this.canPlace(pos)) return false;
+    // palette 指定時は許可種以外を拒否(UI から到達不能でも core 層の防御)
+    const allowed = this.stage.palette;
+    if (allowed && !allowed.includes(kind)) return false;
     this.panels.set(posKey(pos), { kind, rotation, fixed: false });
     return true;
   }

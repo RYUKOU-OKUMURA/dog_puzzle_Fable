@@ -1,5 +1,5 @@
 import type { Dir, GridPos, PanelKind, Rotation, SceneryKind, StageDef } from '../core/types';
-import { MAX_TREATS, posKey } from '../core/types';
+import { MAX_TREATS, PLAYER_PANEL_KINDS, posKey } from '../core/types';
 
 /** defineStage への入力(テキスト地図フォーマット) */
 export interface StageMapInput {
@@ -16,7 +16,7 @@ export interface StageMapInput {
   map: string[];
   /** おやつのマス 'x,z'。M5(おやつ収集)から使用。M1では保持のみ */
   treats?: string[];
-  /** プレイヤーが使えるパネル種。M6(パレット制限)から使用。M1では保持のみ */
+  /** プレイヤーが使えるパネル種。未指定は全種。defineStage で検証済み */
   palette?: PanelKind[];
 }
 
@@ -67,7 +67,7 @@ const END_ROTATION: Readonly<Record<Dir, Rotation>> = {
   W: 270,
 };
 
-/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜) */
+/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜)。'山' はゆきやま、'噴' はふんすい(W3〜) */
 export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   木: 'tree',
   家: 'house',
@@ -77,6 +77,8 @@ export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   鳥: 'torii',
   レ: 'brickHouse',
   電: 'phoneBox',
+  山: 'snowMountain',
+  噴: 'fountain',
 };
 
 /**
@@ -244,6 +246,8 @@ export function defineStage(input: StageMapInput): StageDef {
   const parsed = parseStageMap(input.map);
   // おやつは 'x,z' 文字列から座標へ変換し、盤外・道になり得ないマスを弾く(M5〜)
   const treats = input.treats ? parseTreats(input.treats, parsed) : undefined;
+  // palette は空・重複・プレイヤー配置不可種を弾く。未指定は全種扱い(undefined のまま)
+  const palette = input.palette !== undefined ? parsePalette(input.palette) : undefined;
   return {
     id: input.id,
     name: input.name,
@@ -257,8 +261,27 @@ export function defineStage(input: StageMapInput): StageDef {
     encounterDogId: input.encounterDogId,
     difficulty: input.difficulty,
     treats,
-    palette: input.palette,
+    palette,
   };
+}
+
+/** palette の検証。空・重複・PLAYER_PANEL_KINDS 外は StageMapError */
+function parsePalette(palette: PanelKind[]): PanelKind[] {
+  if (palette.length === 0) {
+    fail('palette が からっぽ です(すくなくとも 1しゅるい ひつようです)');
+  }
+  const allowed = new Set<string>(PLAYER_PANEL_KINDS);
+  const seen = new Set<PanelKind>();
+  for (const kind of palette) {
+    if (!allowed.has(kind)) {
+      fail(`palette に 「${kind}」は つかえません(straight / corner / tee だけです)`);
+    }
+    if (seen.has(kind)) {
+      fail(`palette に 「${kind}」が かさなっています`);
+    }
+    seen.add(kind);
+  }
+  return palette;
 }
 
 /** おやつは 'x,z' を座標に変換し、不正なら StageMapError。最大個数・重複もここで弾く */

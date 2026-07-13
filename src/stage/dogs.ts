@@ -120,9 +120,57 @@ export const DOGS: Record<string, DogInfo> = {
     furColor: 0xe8c478,
     scale: 1.3,
   },
+  poodle: {
+    id: 'poodle',
+    nameHtml: 'プードル',
+    shortName: 'プードル',
+    originHtml: 'フランス(げんしゅは ドイツ)',
+    personality: 'あたまが よくて かいてき すき',
+    size: 'ちいさい〜おおきい (トイ〜スタンダード)',
+    trivia:
+      'もとは <ruby>水鳥<rt>みずどり</rt></ruby>を とる <ruby>猟犬<rt>りょうけん</rt></ruby>。カットした けが ゆうめいだけど、おとなしくて かしこい いぬ だよ。',
+    furColor: 0xf5e6d3,
+    scale: 0.85,
+  },
+  papillon: {
+    id: 'papillon',
+    nameHtml: 'パピヨン',
+    shortName: 'パピヨン',
+    originHtml: 'フランス(ベルギーとも)',
+    personality: 'あかるくて ひとなつっこい',
+    size: 'とても ちいさい (たいじゅう 2〜5kg くらい)',
+    trivia:
+      'なまえは フランスごで「ちょうちょ」。おおきた みみが ちょうちょの はねみたいで かわいいよ。',
+    furColor: 0xe8d4b8,
+    scale: 0.7,
+  },
+  saintBernard: {
+    id: 'saintBernard',
+    nameHtml: 'セントバーナード',
+    shortName: 'セントバーナード',
+    originHtml: 'スイス',
+    personality: 'おとなしくて やさしい きょじん',
+    size: 'とても おおきい (たいじゅう 65〜120kg くらい)',
+    trivia:
+      'アルプスの <ruby>雪山<rt>ゆきやま</rt></ruby>で まよった ひとを たすけていた いぬ。おおきな たるを くびから さげた えが ゆうめいだよ。',
+    furColor: 0xc48a5a,
+    scale: 1.35,
+  },
+  bernese: {
+    id: 'bernese',
+    nameHtml: 'バーニーズマウンテンドッグ',
+    shortName: 'バーニーズ',
+    originHtml: 'スイス',
+    personality: 'おだやかで かぞくに ちゅうじつ',
+    size: 'おおきい (たいじゅう 35〜55kg くらい)',
+    trivia:
+      'スイスの <ruby>山<rt>やま</rt></ruby>で <ruby>農作業<rt>のうさぎょう</rt></ruby>を てつだっていた いぬ。くろ・しろ・ちゃいろの さんしょくが トレードマークだよ。',
+    furColor: 0x3d2e28,
+    scale: 1.28,
+  },
 };
 
-/** 図鑑に載る順番(相棒の柴犬 → ワールド1 → ワールド2の出会い順) */
+/** 図鑑に載る順番(相棒の柴犬 → ワールド順の出会い) */
 export const DOG_ORDER = [
   'shiba',
   'akita',
@@ -133,4 +181,8 @@ export const DOG_ORDER = [
   'beagle',
   'bulldog',
   'golden',
+  'poodle',
+  'papillon',
+  'saintBernard',
+  'bernese',
 ];

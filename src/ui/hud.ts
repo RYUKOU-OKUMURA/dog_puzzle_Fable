@@ -83,6 +83,18 @@ export class Hud {
     this.stageName.textContent = name;
   }
 
+  /**
+   * ステージの palette に無いパネル種ボタンを非表示にする。
+   * グレーの押せないボタンは出さない(子供が「押せるのに押せない」と混乱するため)。
+   */
+  updatePalette(kinds: readonly PanelKind[]): void {
+    const allowed = new Set(kinds);
+    for (const [kind, button] of this.paletteButtons) {
+      button.classList.toggle('hidden', !allowed.has(kind));
+      if (!allowed.has(kind)) button.classList.remove('selected');
+    }
+  }
+
   setSelected(kind: PanelKind | null): void {
     for (const [buttonKind, button] of this.paletteButtons) {
       button.classList.toggle('selected', buttonKind === kind);

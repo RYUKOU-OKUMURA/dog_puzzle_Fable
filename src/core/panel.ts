@@ -1,5 +1,8 @@
 import type { Dir, GridPos, PanelKind, Rotation } from './types';
 
+/** プレイヤーが配置できるパネル種(types から再エクスポート。既存の panel import 互換) */
+export { PLAYER_PANEL_KINDS } from './types';
+
 /** 回転 0 のときの接続方向 */
 const BASE_CONNECTIONS: Record<PanelKind, Dir[]> = {
   straight: ['N', 'S'],
@@ -34,6 +37,3 @@ export function connectionsOf(kind: PanelKind, rotation: Rotation): Dir[] {
 export function nextRotation(rotation: Rotation): Rotation {
   return ((rotation + 90) % 360) as Rotation;
 }
-
-/** プレイヤーが配置できるパネル種(パレットに並ぶ順) */
-export const PLAYER_PANEL_KINDS: PanelKind[] = ['straight', 'corner', 'tee'];

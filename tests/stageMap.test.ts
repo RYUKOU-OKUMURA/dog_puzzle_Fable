@@ -26,12 +26,16 @@ describe('道トークンの接続が core/panel と一致する', () => {
   it('道トークンは10種', () => {
     expect(Object.keys(ROAD_TOKENS).length).toBe(10);
   });
-  it('添景トークンは8種', () => {
-    expect(Object.keys(SCENERY_TOKENS).length).toBe(8);
+  it('添景トークンは10種', () => {
+    expect(Object.keys(SCENERY_TOKENS).length).toBe(10);
   });
   it('W2の添景トークン(レ=レンガ家 / 電=でんわボックス)が含まれる', () => {
     expect(SCENERY_TOKENS['レ']).toBe('brickHouse');
     expect(SCENERY_TOKENS['電']).toBe('phoneBox');
+  });
+  it('W3の添景トークン(山=ゆきやま / 噴=ふんすい)が含まれる', () => {
+    expect(SCENERY_TOKENS['山']).toBe('snowMountain');
+    expect(SCENERY_TOKENS['噴']).toBe('fountain');
   });
 });
 
@@ -306,6 +310,52 @@ describe('parseStageMap: W2の添景トークン(レ・電)', () => {
     const parsed = parseStageMap(['★ ─ ◎', 'レ .  電']);
     expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'brickHouse' });
     expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'phoneBox' });
+  });
+});
+
+describe('parseStageMap: W3の添景トークン(山・噴)', () => {
+  it('山 は snowMountain、噴 は fountain として添景に並ぶ', () => {
+    const parsed = parseStageMap(['★ ─ ◎', '山 .  噴']);
+    expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'snowMountain' });
+    expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'fountain' });
+  });
+});
+
+describe('defineStage: palette の検証', () => {
+  const base = {
+    id: 't',
+    name: 't',
+    world: 'w3',
+    encounterDogId: 'd',
+    map: ['★ ─ ◎'],
+  };
+
+  it('正常系: straight/corner がそのまま通る', () => {
+    const stage = defineStage({ ...base, palette: ['straight', 'corner'] });
+    expect(stage.palette).toEqual(['straight', 'corner']);
+  });
+
+  it('未指定は undefined(全種扱い)', () => {
+    const stage = defineStage(base);
+    expect(stage.palette).toBeUndefined();
+  });
+
+  it('空配列は StageMapError', () => {
+    const fn = () => defineStage({ ...base, palette: [] });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/からっぽ/);
+  });
+
+  it('重複は StageMapError', () => {
+    const fn = () => defineStage({ ...base, palette: ['straight', 'straight'] });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/かさなっています/);
+  });
+
+  it('PLAYER_PANEL_KINDS 外(end)は StageMapError', () => {
+    const fn = () => defineStage({ ...base, palette: ['end'] as unknown as ['straight'] });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/つかえません/);
   });
 });
 

@@ -190,6 +190,10 @@ function buildScenery(kind: SceneryKind, pos: GridPos): THREE.Group {
       return buildBrickHouse(pos);
     case 'phoneBox':
       return buildPhoneBox(pos);
+    case 'snowMountain':
+      return buildSnowMountain(pos);
+    case 'fountain':
+      return buildFountain(pos);
   }
 }
 
@@ -390,3 +394,54 @@ function buildPhoneBox(pos: GridPos): THREE.Group {
   group.rotation.y = (hash(pos, 6) % 4) * (Math.PI / 2);
   return withShadow(group);
 }
+
+/**
+ * W3 フランス・スイス: ゆきやま。岩色の台座に白い雪の三角すい。
+ * 高さは design-guide 6.3 の上限(1.5)未満に抑える。色は 6.2 パレット内。
+ */
+function buildSnowMountain(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const rock = lambert(0xd9b98c);
+  const snow = lambert(0xffffff);
+
+  const base = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.55, 5), rock);
+  base.position.y = 0.28;
+  group.add(base);
+
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.32, 5), snow);
+  cap.position.y = 0.62;
+  group.add(cap);
+
+  group.rotation.y = (hash(pos, 3) % 4) * (Math.PI / 2);
+  return withShadow(group);
+}
+
+/**
+ * W3 フランス・スイス: ふんすい。石の縁に水色の水面と小さな噴き出し。
+ * 池(pond)と同系色。色は design-guide 6.2 パレット内。
+ */
+function buildFountain(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const stone = lambert(0xd9b98c);
+  const water = lambert(0x9fd8f0);
+
+  const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.1, 16), stone);
+  basin.position.y = 0.05;
+  group.add(basin);
+
+  const pool = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.04, 16), water);
+  pool.position.y = 0.1;
+  group.add(pool);
+
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.22, 10), stone);
+  pillar.position.y = 0.22;
+  group.add(pillar);
+
+  const jet = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), water);
+  jet.position.y = 0.38;
+  group.add(jet);
+
+  group.rotation.y = (hash(pos, 4) % 4) * (Math.PI / 2);
+  return withShadow(group);
+}
+

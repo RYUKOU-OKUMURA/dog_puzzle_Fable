@@ -7,10 +7,14 @@ import { w2s1 } from './w2s1';
 import { w2s2 } from './w2s2';
 import { w2s3 } from './w2s3';
 import { w2s4 } from './w2s4';
+import { w3s1 } from './w3s1';
+import { w3s2 } from './w3s2';
+import { w3s3 } from './w3s3';
+import { w3s4 } from './w3s4';
 
 /**
  * ワールドの定義。5ワールド(にほん→せかいのたび)。
- * 各ワールドは最大4ステージを持つ。未実装ワールド(M5以降)は stages を空配列にし、
+ * 各ワールドは最大4ステージを持つ。未実装ワールド(M7以降)は stages を空配列にし、
  * ワールド選択画面では「もうすぐ とうじょう」のロック扱いにする。
  */
 export interface WorldDef {
@@ -45,7 +49,7 @@ export const WORLDS: readonly WorldDef[] = [
     nameHtml: 'フランス と スイス',
     emoji: '🏔️',
     sub: 'いしだたみと アルプスの まち',
-    stages: [],
+    stages: [w3s1, w3s2, w3s3, w3s4],
   },
   {
     id: 'w4',

@@ -1,4 +1,4 @@
-import { connectionsOf, DIR_OFFSET, OPPOSITE } from '../core/panel';
+import { connectionsOf, DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS } from '../core/panel';
 import { findPath } from '../core/path';
 import type { GridPos, PanelKind, StageDef } from '../core/types';
 import { posKey } from '../core/types';
@@ -238,6 +238,9 @@ export class Game {
       canvas: this.deps.canvas,
     });
     this.deps.hud.updateStageName(stage.name);
+    // palette 未指定は全種。ステージ切替時は選択も解除(非表示種に選択が残らないように)
+    this.deps.hud.updatePalette(stage.palette ?? PLAYER_PANEL_KINDS);
+    this.runtime.puzzle.selectKind(null);
     this.resetShiba();
   }
 

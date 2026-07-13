@@ -9,6 +9,9 @@ export type Dir = 'N' | 'E' | 'S' | 'W';
 /** 'end' はスタート(おうち)・ゴール専用の端点。プレイヤーは配置できない */
 export type PanelKind = 'straight' | 'corner' | 'tee' | 'end';
 
+/** プレイヤーが配置できるパネル種(パレットに並ぶ順)。stage/ の palette 検証からも参照 */
+export const PLAYER_PANEL_KINDS: readonly PanelKind[] = ['straight', 'corner', 'tee'];
+
 export type Rotation = 0 | 90 | 180 | 270;
 
 export interface Panel {
@@ -19,7 +22,16 @@ export interface Panel {
 }
 
 export type SceneryKind =
-  'house' | 'building' | 'tree' | 'flower' | 'pond' | 'torii' | 'brickHouse' | 'phoneBox';
+  | 'house'
+  | 'building'
+  | 'tree'
+  | 'flower'
+  | 'pond'
+  | 'torii'
+  | 'brickHouse'
+  | 'phoneBox'
+  | 'snowMountain'
+  | 'fountain';
 
 export interface StageDef {
   id: string;
@@ -42,7 +54,7 @@ export interface StageDef {
   difficulty?: number;
   /** おやつのマス(座標)。M5(おやつ収集)から使用。defineStage で 'x,z' 文字列から検証済み座標へ変換 */
   treats?: GridPos[];
-  /** プレイヤーが使えるパネル種。M6(パレット制限)から使用 */
+  /** プレイヤーが使えるパネル種。未指定は全種。defineStage で検証済み */
   palette?: PanelKind[];
 }
 

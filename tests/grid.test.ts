@@ -23,6 +23,21 @@ describe('Grid', () => {
     expect(grid.place({ x: 0, z: 1 }, 'straight')).toBe(false);
   });
 
+  it('palette に無い種類は配置できず盤面が変わらない', () => {
+    const stage = makeTestStage();
+    stage.palette = ['straight', 'corner']; // tee なし
+    const grid = new Grid(stage);
+    expect(grid.place({ x: 1, z: 1 }, 'tee')).toBe(false);
+    expect(grid.panelAt({ x: 1, z: 1 })).toBeUndefined();
+    expect(grid.place({ x: 1, z: 1 }, 'straight')).toBe(true);
+    expect(grid.panelAt({ x: 1, z: 1 })).toMatchObject({ kind: 'straight' });
+  });
+
+  it('palette 未指定なら全種配置できる', () => {
+    const grid = new Grid(makeTestStage());
+    expect(grid.place({ x: 1, z: 1 }, 'tee')).toBe(true);
+  });
+
   it('配置したパネルは回転できる(90°ずつ一周)', () => {
     const grid = new Grid(makeTestStage());
     grid.place({ x: 1, z: 1 }, 'straight');

@@ -38,8 +38,11 @@ export async function walkAlong(
   secondsPerCell = 0.42,
   onArrive?: (cell: GridPos) => Promise<void> | void,
   heights?: number[],
+  /** true なら以降のマス移動をやめる(ヒント中断用) */
+  shouldAbort?: () => boolean,
 ): Promise<void> {
   for (let i = 1; i < route.length; i++) {
+    if (shouldAbort?.()) return;
     const from = gridToWorld(route[i - 1]!, stage);
     const to = gridToWorld(route[i]!, stage);
     const dx = to.x - from.x;
@@ -54,6 +57,7 @@ export async function walkAlong(
       await animator.run(TURN_SECONDS, (t) => {
         dog.group.rotation.y = currentAngle + (targetAngle - currentAngle) * easeInOut(t);
       });
+      if (shouldAbort?.()) return;
     }
 
     // 1マスぶん移動 + 上下の弾みで「テクテク感」(橋の高さの上に加算)
@@ -64,6 +68,7 @@ export async function walkAlong(
       dog.group.position.y = baseY + Math.abs(Math.sin(t * Math.PI * 2)) * 0.06;
       dog.group.rotation.z = Math.sin(t * Math.PI * 4) * 0.045;
     });
+    if (shouldAbort?.()) return;
 
     if (onArrive) await onArrive(route[i]!);
   }

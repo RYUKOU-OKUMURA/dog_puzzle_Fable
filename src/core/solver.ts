@@ -23,6 +23,18 @@ export interface HintTarget {
   kind: HintKind;
 }
 
+/**
+ * 探索ノード予算。
+ * 出荷済み全ステージの空盤 findSolution は実測で最大数十〜数百ノード程度で完了する。
+ * 将来のステージデータミスで解なし盤面がヒント発火時にメインスレッドを塞がないよう、
+ * 十分な余裕を見て 200_000 とする。超過時は判定不能として null を返す。
+ */
+export const SOLVER_NODE_BUDGET = 200_000;
+
+/** 探索結果(テスト・予算超過の区別用) */
+export type SolveOutcome =
+  { status: 'solved'; placements: SolverPlacement[] } | { status: 'none' } | { status: 'budget' };
+
 /** stage.palette を尊重した [種別, 回転] 候補 */
 export function panelOptionsFor(stage: StageDef): Array<[PanelKind, Rotation]> {
   const kinds = stage.palette ?? PLAYER_PANEL_KINDS;
@@ -47,23 +59,41 @@ function visitKey(pos: GridPos, enteredFrom: Dir | null, kind: PanelKind): strin
 }
 
 /**
- * 現在の盤面(配置済みパネル込み)からクリアできる配置を1つ探す。
- * 見つかれば「いま空いているスロットへ新たに置くべき配置」だけを返す。
- * 既に complete なら空配列。解なしなら null。
+ * 現在の盤面からクリア配置を探す(予算付き)。
+ *
+ * 既知の制約: visited がおやつマスクを含まないため、
+ * 「同一マスを2回通らないと全おやつを回収できないステージ」は解なし扱いになる。
+ * 現行全ステージは単純経路設計のため実害なし(挙動は変えない)。
  */
-export function findSolution(grid: Grid): SolverPlacement[] | null {
-  if (findPath(grid).complete) return [];
+export function solveGrid(grid: Grid, nodeBudget = SOLVER_NODE_BUDGET): SolveOutcome {
+  if (findPath(grid).complete) return { status: 'solved', placements: [] };
 
   const options = panelOptionsFor(grid.stage);
   const visited = new Set<string>();
   const placed: SolverPlacement[] = [];
+  const counter = { nodes: 0, budget: nodeBudget, hitBudget: false };
 
-  const ok = solveFrom(grid, grid.stage.start.pos, null, visited, options, placed);
+  const found = solveFrom(grid, grid.stage.start.pos, null, visited, options, placed, counter);
   // 探索中の仮置きを戻す(呼び出し元の盤面を汚さない)。成功時は placed に解が残る
   for (const p of placed) {
     grid.remove(p.pos);
   }
-  return ok ? placed : null;
+  if (found) return { status: 'solved', placements: [...placed] };
+  if (counter.hitBudget) return { status: 'budget' };
+  return { status: 'none' };
+}
+
+/**
+ * 現在の盤面(配置済みパネル込み)からクリアできる配置を1つ探す。
+ * 見つかれば「いま空いているスロットへ新たに置くべき配置」だけを返す。
+ * 既に complete なら空配列。解なし・予算超過なら null。
+ */
+export function findSolution(
+  grid: Grid,
+  nodeBudget = SOLVER_NODE_BUDGET,
+): SolverPlacement[] | null {
+  const outcome = solveGrid(grid, nodeBudget);
+  return outcome.status === 'solved' ? outcome.placements : null;
 }
 
 /** ステージ定義から空盤で解けるか(テスト用) */
@@ -79,6 +109,7 @@ export function isStageSolvable(stage: StageDef): boolean {
  * 2. いまの配置のまま空きを埋めれば解ける → 正解ルート上の空きスロット1つ(place)
  * 3. 誤配置で詰み → はずせば解けるプレイヤーパネル1つ(remove)。
  *    それも無ければ、空盤の解と食い違う配置を remove、または解上の空きを place
+ * 4. 探索予算超過 → null(ヒントを出さず安全側)
  */
 export function findHintTarget(grid: Grid): HintTarget | null {
   if (findPath(grid).complete) return null;
@@ -146,6 +177,12 @@ function playerPlacedSlots(grid: Grid): GridPos[] {
   return result;
 }
 
+interface SolveCounter {
+  nodes: number;
+  budget: number;
+  hitBudget: boolean;
+}
+
 function solveFrom(
   grid: Grid,
   current: GridPos,
@@ -153,7 +190,14 @@ function solveFrom(
   visited: Set<string>,
   options: Array<[PanelKind, Rotation]>,
   placed: SolverPlacement[],
+  counter: SolveCounter,
 ): boolean {
+  counter.nodes += 1;
+  if (counter.nodes > counter.budget) {
+    counter.hitBudget = true;
+    return false;
+  }
+
   if (posKey(current) === posKey(grid.stage.goal.pos)) {
     return findPath(grid).complete;
   }
@@ -170,14 +214,14 @@ function solveFrom(
       if (!grid.inBounds(next)) continue;
       const nextPanel = grid.panelAt(next);
       if (nextPanel && grid.connectionsAt(next)?.includes(OPPOSITE[dir])) {
-        if (solveFrom(grid, next, OPPOSITE[dir], visited, options, placed)) return true;
+        if (solveFrom(grid, next, OPPOSITE[dir], visited, options, placed, counter)) return true;
       } else if (grid.isSlot(next) && !grid.panelAt(next)) {
         for (const [kind, rot] of options) {
           grid.place(next, kind, rot);
           const conns = grid.connectionsAt(next)!;
           if (conns.includes(OPPOSITE[dir])) {
             placed.push({ pos: next, kind, rotation: rot });
-            if (solveFrom(grid, next, OPPOSITE[dir], visited, options, placed)) {
+            if (solveFrom(grid, next, OPPOSITE[dir], visited, options, placed, counter)) {
               return true;
             }
             placed.pop();

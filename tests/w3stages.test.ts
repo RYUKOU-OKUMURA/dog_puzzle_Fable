@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
-import { DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS } from '../src/core/panel';
 import { findPath } from '../src/core/path';
+import { isStageSolvable } from '../src/core/solver';
 import type { GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
 import { posKey } from '../src/core/types';
 import { w3s1 } from '../src/stage/w3s1';
 import { w3s2 } from '../src/stage/w3s2';
 import { w3s3 } from '../src/stage/w3s3';
 import { w3s4 } from '../src/stage/w3s4';
+import { expectIntendedSolutionSolves, expectNoShorterSolution } from './helpers';
+import { DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS } from '../src/core/panel';
 
 /**
- * W3 ステージ4種の検証(M6)。ダミースロット・palette 制限・9×9。
+ * W3 ステージ4種の検証(M6 / M8.1)。ダミースロット・palette 制限・9×9・近道なし。
  * ソルバは stage.palette を尊重する(tee なしの w3-s2 を誤判定しない)。
  */
 
@@ -78,25 +80,57 @@ function solveFrom(
   }
 }
 
-function expectIntendedSolutionSolves(
-  stage: StageDef,
-  placements: Array<{ pos: GridPos; kind: PanelKind; rotation: Rotation }>,
-): void {
-  const grid = new Grid(stage);
-  const allowed = new Set(stage.palette ?? PLAYER_PANEL_KINDS);
-  for (const p of placements) {
-    expect(allowed.has(p.kind), `${p.kind} は palette 内`).toBe(true);
-    expect(grid.place(p.pos, p.kind, p.rotation), `${posKey(p.pos)} に配置できる`).toBe(true);
-  }
-  const result = findPath(grid);
-  expect(result.complete, '意図解で ★→◎ がつながる(全おやつ通過)').toBe(true);
-  expect(result.route[0], 'ルートはスタートから').toEqual(stage.start.pos);
-  expect(result.route[result.route.length - 1], 'ルートはゴールへ').toEqual(stage.goal.pos);
-  const routeKeys = new Set(result.route.map(posKey));
-  for (const t of stage.treats ?? []) {
-    expect(routeKeys.has(posKey(t)), `おやつ(${posKey(t)}) をルートが通る`).toBe(true);
-  }
-}
+const W3S1_INTENDED = [
+  { pos: { x: 2, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 4, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 5, z: 1 }, kind: 'corner' as const, rotation: 180 as const },
+  { pos: { x: 5, z: 2 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 5, z: 3 }, kind: 'corner' as const, rotation: 0 as const },
+];
+
+const W3S2_INTENDED = [
+  { pos: { x: 2, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 4, z: 1 }, kind: 'corner' as const, rotation: 180 as const },
+  { pos: { x: 4, z: 2 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 4, z: 3 }, kind: 'corner' as const, rotation: 270 as const },
+  { pos: { x: 3, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 2, z: 3 }, kind: 'corner' as const, rotation: 90 as const },
+  { pos: { x: 2, z: 4 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 2, z: 5 }, kind: 'corner' as const, rotation: 0 as const },
+  { pos: { x: 3, z: 5 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 4, z: 5 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 5, z: 5 }, kind: 'straight' as const, rotation: 90 as const },
+];
+
+const W3S3_INTENDED = [
+  { pos: { x: 2, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 4, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 5, z: 1 }, kind: 'corner' as const, rotation: 180 as const },
+  { pos: { x: 5, z: 2 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 5, z: 3 }, kind: 'corner' as const, rotation: 270 as const },
+  { pos: { x: 4, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 3, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
+];
+
+const W3S4_INTENDED = [
+  { pos: { x: 2, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 4, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 5, z: 1 }, kind: 'corner' as const, rotation: 180 as const },
+  { pos: { x: 5, z: 2 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 5, z: 3 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 5, z: 4 }, kind: 'corner' as const, rotation: 270 as const },
+  { pos: { x: 4, z: 4 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 3, z: 4 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 2, z: 4 }, kind: 'corner' as const, rotation: 90 as const },
+  { pos: { x: 2, z: 5 }, kind: 'straight' as const, rotation: 0 as const },
+  { pos: { x: 2, z: 6 }, kind: 'corner' as const, rotation: 0 as const },
+  { pos: { x: 3, z: 6 }, kind: 'straight' as const, rotation: 90 as const },
+  { pos: { x: 4, z: 6 }, kind: 'straight' as const, rotation: 90 as const },
+];
 
 // ============================================================================
 // w3-s1「フランスの まち 1」(🦴3 / ダミー2)
@@ -118,27 +152,24 @@ describe('w3-s1「フランスの まち 1」', () => {
   });
 
   it('(d) 意図解(L字・ダミー2未使用)で解ける', () => {
-    expectIntendedSolutionSolves(w3s1, [
-      { pos: { x: 2, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 3, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 4, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 5, z: 1 }, kind: 'corner', rotation: 180 },
-      { pos: { x: 5, z: 2 }, kind: 'straight', rotation: 0 },
-      { pos: { x: 5, z: 3 }, kind: 'corner', rotation: 0 },
-    ]);
+    expectIntendedSolutionSolves(w3s1, W3S1_INTENDED);
   });
 
   it('(e) 総当たりソルバでも解が存在する', () => {
     expect(isSolvable(w3s1)).toBe(true);
   });
+
+  it('(f) 意図解より短い別解がない', () => {
+    expectNoShorterSolution(w3s1, W3S1_INTENDED.length);
+  });
 });
 
 // ============================================================================
-// w3-s2「フランスの まち 2」(🦴3 / T字なし + ダミー3)
+// w3-s2「フランスの まち 2」(🦴3 / T字なし + ダミー2)
 // ============================================================================
 describe('w3-s2「フランスの まち 2」', () => {
-  it('(a) スロット数が 15(正解12+ダミー3)', () => {
-    expect(w3s2.slots.length).toBe(15);
+  it('(a) スロット数が 14(正解12+ダミー2)', () => {
+    expect(w3s2.slots.length).toBe(14);
   });
 
   it('(b) 難度が 3', () => {
@@ -154,27 +185,35 @@ describe('w3-s2「フランスの まち 2」', () => {
   });
 
   it('(d) 意図解(S字・tee 不使用)で解ける', () => {
-    expectIntendedSolutionSolves(w3s2, [
-      { pos: { x: 2, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 3, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 4, z: 1 }, kind: 'corner', rotation: 180 },
-      { pos: { x: 4, z: 2 }, kind: 'straight', rotation: 0 },
-      { pos: { x: 4, z: 3 }, kind: 'corner', rotation: 270 },
-      { pos: { x: 3, z: 3 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 2, z: 3 }, kind: 'corner', rotation: 90 },
-      { pos: { x: 2, z: 4 }, kind: 'straight', rotation: 0 },
-      { pos: { x: 2, z: 5 }, kind: 'corner', rotation: 0 },
-      { pos: { x: 3, z: 5 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 4, z: 5 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 5, z: 5 }, kind: 'straight', rotation: 90 },
-    ]);
+    expectIntendedSolutionSolves(w3s2, W3S2_INTENDED);
   });
 
   it('palette 外(tee)を使わないと成立する解がある(ソルバが palette を尊重)', () => {
     expect(isSolvable(w3s2)).toBe(true);
-    // tee を置こうとしても place が拒否する
     const grid = new Grid(w3s2);
     expect(grid.place({ x: 2, z: 1 }, 'tee')).toBe(false);
+  });
+
+  it('(f) 意図解より短い別解がない', () => {
+    expectNoShorterSolution(w3s2, W3S2_INTENDED.length);
+  });
+
+  it('旧近道( x=3 縦貫通 )はスロット欠損で成立しない', () => {
+    const grid = new Grid(w3s2);
+    // (3,2)(3,4) は再設計で削除済み
+    expect(grid.isSlot({ x: 3, z: 2 })).toBe(false);
+    expect(grid.isSlot({ x: 3, z: 4 })).toBe(false);
+    const placements: Array<{ pos: GridPos; kind: PanelKind; rotation: Rotation }> = [
+      { pos: { x: 2, z: 1 }, kind: 'straight', rotation: 90 },
+      { pos: { x: 3, z: 1 }, kind: 'corner', rotation: 180 },
+      { pos: { x: 3, z: 5 }, kind: 'corner', rotation: 0 },
+      { pos: { x: 4, z: 5 }, kind: 'straight', rotation: 90 },
+      { pos: { x: 5, z: 5 }, kind: 'straight', rotation: 90 },
+    ];
+    for (const p of placements) {
+      expect(grid.place(p.pos, p.kind, p.rotation)).toBe(true);
+    }
+    expect(findPath(grid).complete).toBe(false);
   });
 });
 
@@ -201,20 +240,15 @@ describe('w3-s3「スイスの まち 1」', () => {
   });
 
   it('(d) 意図解(U字・おやつ2)で解ける', () => {
-    expectIntendedSolutionSolves(w3s3, [
-      { pos: { x: 2, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 3, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 4, z: 1 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 5, z: 1 }, kind: 'corner', rotation: 180 },
-      { pos: { x: 5, z: 2 }, kind: 'straight', rotation: 0 },
-      { pos: { x: 5, z: 3 }, kind: 'corner', rotation: 270 },
-      { pos: { x: 4, z: 3 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 3, z: 3 }, kind: 'straight', rotation: 90 },
-    ]);
+    expectIntendedSolutionSolves(w3s3, W3S3_INTENDED);
   });
 
   it('(e) 総当たりソルバでもおやつ全部通過の解が存在する', () => {
     expect(isSolvable(w3s3)).toBe(true);
+  });
+
+  it('(f) 意図解より短い別解がない', () => {
+    expectNoShorterSolution(w3s3, W3S3_INTENDED.length);
   });
 });
 
@@ -238,7 +272,18 @@ describe('w3-s4「スイスの まち 2」', () => {
   });
 
   it('(d) 意図解(外周寄りの最長ルート)で解ける', () => {
-    expectIntendedSolutionSolves(w3s4, [
+    expectIntendedSolutionSolves(w3s4, W3S4_INTENDED);
+  });
+
+  it('(e) 総当たりソルバでも解が存在する', () => {
+    expect(isStageSolvable(w3s4)).toBe(true);
+  });
+
+  it('旧近道 (3,4)→(3,5)→(3,6) はスロット欠損で成立しない', () => {
+    const grid = new Grid(w3s4);
+    expect(grid.isSlot({ x: 3, z: 5 })).toBe(false);
+    expect(grid.isSlot({ x: 4, z: 5 })).toBe(false);
+    const placements: Array<{ pos: GridPos; kind: PanelKind; rotation: Rotation }> = [
       { pos: { x: 2, z: 1 }, kind: 'straight', rotation: 90 },
       { pos: { x: 3, z: 1 }, kind: 'straight', rotation: 90 },
       { pos: { x: 4, z: 1 }, kind: 'straight', rotation: 90 },
@@ -247,16 +292,13 @@ describe('w3-s4「スイスの まち 2」', () => {
       { pos: { x: 5, z: 3 }, kind: 'straight', rotation: 0 },
       { pos: { x: 5, z: 4 }, kind: 'corner', rotation: 270 },
       { pos: { x: 4, z: 4 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 3, z: 4 }, kind: 'straight', rotation: 90 },
-      { pos: { x: 2, z: 4 }, kind: 'corner', rotation: 90 },
-      { pos: { x: 2, z: 5 }, kind: 'straight', rotation: 0 },
-      { pos: { x: 2, z: 6 }, kind: 'corner', rotation: 0 },
-      { pos: { x: 3, z: 6 }, kind: 'straight', rotation: 90 },
+      { pos: { x: 3, z: 4 }, kind: 'corner', rotation: 90 },
+      { pos: { x: 3, z: 6 }, kind: 'corner', rotation: 0 },
       { pos: { x: 4, z: 6 }, kind: 'straight', rotation: 90 },
-    ]);
-  });
-
-  it('(e) 総当たりソルバでも解が存在する', () => {
-    expect(isSolvable(w3s4)).toBe(true);
+    ];
+    for (const p of placements) {
+      expect(grid.place(p.pos, p.kind, p.rotation)).toBe(true);
+    }
+    expect(findPath(grid).complete).toBe(false);
   });
 });

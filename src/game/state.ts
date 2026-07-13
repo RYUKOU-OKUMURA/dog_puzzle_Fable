@@ -51,6 +51,8 @@ import type { ZukanView } from '../ui/zukan';
 import { StageRuntime } from './stageRuntime';
 import type { Animator } from './tween';
 import { photoZoomForFriendScale } from './photo';
+import { firstClearCelebrationFlags } from './clearCelebration';
+import { HintGeneration } from './hintGeneration';
 import {
   celebrate,
   faceTowardIsometricCamera,
@@ -100,6 +102,8 @@ export class Game {
   private idleTimerId: number | null = null;
   /** ヒント演出中は操作・再発火しない */
   private hintPlaying = false;
+  /** ヒント演出の世代。resetHintTracking で invalidate し、await 後に stale なら中断 */
+  private readonly hintGeneration = new HintGeneration();
 
   constructor(deps: GameDeps) {
     this.deps = deps;
@@ -424,9 +428,11 @@ export class Game {
   // ---------- しばちゃんヒント ----------
 
   private resetHintTracking(): void {
+    this.hintGeneration.invalidate();
     this.walkFailCount = 0;
     this.hintPlaying = false;
     this.clearIdleTimer();
+    this.deps.animator.cancelAll();
     this.runtime?.town.setHintSlot(null);
   }
 
@@ -451,8 +457,10 @@ export class Game {
   }
 
   /**
-   * ヒント1回分: 正解ルート上の空き(またははずすべきマス)へ歩き、ちょこんと座り、マスを光らせる。
-   * UIボタンは置かない。ペナルティなし。
+   * ヒント1回分。
+   * - place: 正解ルート上の空きへ歩き、ちょこんと座り、マスを光らせる
+   * - remove: 誤配置マスへ歩き、首をかしげて「はずしてね」と伝える
+   * UIボタンは置かない。ペナルティなし。演出中に「もどる」されたら世代不一致で中断する。
    */
   private async tryFireHint(): Promise<void> {
     if (this.phase !== 'puzzle' || !this.runtime || this.hintPlaying) return;
@@ -462,31 +470,90 @@ export class Game {
       return;
     }
 
+    const gen = this.hintGeneration.token();
     this.hintPlaying = true;
     this.clearIdleTimer();
     const { puzzle, town, stage } = this.runtime;
-    const { animator } = this.deps;
+    const { animator, hud } = this.deps;
     puzzle.enabled = false;
     puzzle.selectKind(null);
 
-    // 道がつながっていなくてもヒント先へ直線でテクテク(世界観の救済演出)
+    const isStale = (): boolean => this.hintGeneration.isStale(gen);
+    const abortHint = (): void => {
+      // 古い town への光解除は dispose 後でも無害。新しい runtime には触れない
+      town.setHintSlot(null);
+      this.hintPlaying = false;
+    };
+
     const from = stage.start.pos;
     this.resetShiba();
     if (posKey(from) !== posKey(hint.pos)) {
-      await walkAlong(this.shiba, [from, hint.pos], stage, animator, 0.38);
+      await walkAlong(
+        this.shiba,
+        [from, hint.pos],
+        stage,
+        animator,
+        0.38,
+        undefined,
+        undefined,
+        isStale,
+      );
+      if (isStale()) {
+        abortHint();
+        return;
+      }
     }
-    await sitDown(this.shiba, animator);
-    town.setHintSlot(hint.pos);
-    town.flashHintSlot(hint.pos);
-    await animator.wait(1.0);
-    await standUp(this.shiba, animator);
+
+    if (hint.kind === 'remove') {
+      town.setHintSlot(hint.pos, 'remove');
+      town.flashHintSlot(hint.pos);
+      hud.showToast('この パネル、いちど はずして みようよ', 3000);
+      await headTilt(this.shiba, animator);
+      if (isStale()) {
+        abortHint();
+        return;
+      }
+    } else {
+      await sitDown(this.shiba, animator);
+      if (isStale()) {
+        abortHint();
+        return;
+      }
+      town.setHintSlot(hint.pos, 'place');
+      town.flashHintSlot(hint.pos);
+      await animator.wait(1.0);
+      if (isStale()) {
+        abortHint();
+        return;
+      }
+      await standUp(this.shiba, animator);
+      if (isStale()) {
+        abortHint();
+        return;
+      }
+    }
+
     if (posKey(from) !== posKey(hint.pos)) {
-      await walkAlong(this.shiba, [hint.pos, from], stage, animator, 0.28);
+      await walkAlong(
+        this.shiba,
+        [hint.pos, from],
+        stage,
+        animator,
+        0.28,
+        undefined,
+        undefined,
+        isStale,
+      );
+      if (isStale()) {
+        abortHint();
+        return;
+      }
     }
     this.resetShiba();
 
     this.hintPlaying = false;
-    if (this.phase === 'puzzle') {
+    // 退出後に古い puzzle を再有効化しない(runtime が差し替わっていれば触らない)
+    if (this.phase === 'puzzle' && this.runtime?.puzzle === puzzle) {
       puzzle.enabled = true;
       this.armIdleTimer();
     }
@@ -632,6 +699,9 @@ export class Game {
     if (!this.runtime || !this.profileId) return;
     const { screens } = this.deps;
     const stage = this.runtime.stage;
+    // 演出のエッジ判定用: 登録・クリア記録の「前」の状態を取る
+    const beforeCollected = countCollected(this.save);
+    const wasStageCleared = this.save.stages[stage.id]?.cleared === true;
     // プロフィール未選択でここへ来ることはないが、型安全性のために抜ける(上でガード済み)
     registerDog(this.profileId, this.save, stage.encounterDogId, this.lastPhoto);
     markCleared(this.profileId, this.save, stage.id);
@@ -641,8 +711,13 @@ export class Game {
     const backWorldId = this.currentWorldId ?? WORLDS[0]!.id;
     const collected = countCollected(this.save);
     const total = DOG_ORDER.length;
-    const zukanComplete = collected >= total;
-    const worldFinale = stage.id === 'w5-s4';
+    const { zukanComplete, worldFinale } = firstClearCelebrationFlags({
+      beforeCollected,
+      afterCollected: collected,
+      totalDogs: total,
+      stageId: stage.id,
+      wasStageCleared,
+    });
 
     screens.showClear(
       collected,

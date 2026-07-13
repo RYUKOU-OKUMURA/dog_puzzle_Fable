@@ -36,6 +36,16 @@ export class Animator {
   wait(seconds: number): Promise<void> {
     return this.run(seconds, () => {});
   }
+
+  /** 進行中の補間をすべて打ち切る(ヒント中断など)。onUpdate(1) で終端状態にしてから resolve */
+  cancelAll(): void {
+    const tasks = this.tasks;
+    this.tasks = [];
+    for (const task of tasks) {
+      task.onUpdate(1);
+      task.resolve();
+    }
+  }
 }
 
 /** 行き過ぎない最短回転の目標角度を返す */

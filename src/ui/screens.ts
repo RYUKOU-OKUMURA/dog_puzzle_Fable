@@ -131,7 +131,7 @@ export class Screens {
     } else if (extras?.zukanComplete) {
       title = 'ずかん コンプリート! 🎉';
       note =
-        `すごい! 全部の いぬと ともだちに なったよ!<br />` +
+        `すごい! ぜんぶの いぬと ともだちに なったよ!<br />` +
         `おさんぽずかん <b>${collected}/${total} しゅるい</b>`;
     }
 

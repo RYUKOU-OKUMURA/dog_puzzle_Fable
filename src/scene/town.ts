@@ -9,9 +9,14 @@ const GRASS_A = 0xa9dd9d;
 const GRASS_B = 0x9ed394;
 const SLOT_SAND = 0xf0e2b6;
 const SLOT_HIGHLIGHT = 0xffc9d8;
-/** ヒント対象マスの常時ほんのり明るい色(ハイライトと同系のやわらかいピンク) */
-const SLOT_HINT = 0xffc9d8;
+/** ヒント place: 常時ほんのり明るい色(ハイライトと同系のやわらかいピンク) */
+const SLOT_HINT_PLACE = 0xffc9d8;
+/** ヒント remove: 既存オレンジ系で「はずしてね」を伝える(design-guide 6.2 / UI --orange-strong) */
+const SLOT_HINT_REMOVE = 0xf2903d;
 const BASE_BROWN = 0xd9b98c;
+
+/** ヒント演出の見た目指示(判定ロジックは game/ 側。scene は色だけ切り替える) */
+export type HintSlotStyle = 'place' | 'remove';
 
 /** テーマ別の地面色(すべて design-guide 6.2 の既存パレット内) */
 const THEME_GROUND: Record<StageTheme, [number, number]> = {
@@ -50,7 +55,7 @@ export interface Town {
   /** パネル選択中に空きマスを目立たせる */
   setSlotsHighlighted(highlighted: boolean, isEmpty: (pos: GridPos) => boolean): void;
   /** しばちゃんヒント: 特定スロットをやわらかく光らせる。null で解除 */
-  setHintSlot(pos: GridPos | null): void;
+  setHintSlot(pos: GridPos | null, style?: HintSlotStyle): void;
   /** ヒント発火時のきらっと1回(ループしない) */
   flashHintSlot(pos: GridPos): void;
 }
@@ -63,6 +68,7 @@ export function buildTown(stage: StageDef): Town {
   const theme = stage.theme;
   const groundPair = theme ? THEME_GROUND[theme] : ([GRASS_A, GRASS_B] as [number, number]);
   let hintKey: string | null = null;
+  let hintStyle: HintSlotStyle = 'place';
   let paletteHighlight = false;
   let paletteIsEmpty: ((pos: GridPos) => boolean) | null = null;
 
@@ -138,7 +144,7 @@ export function buildTown(stage: StageDef): Town {
       const pos = { x: x!, z: z! };
       const material = tile.material as THREE.MeshLambertMaterial;
       if (hintKey === key) {
-        material.color.setHex(SLOT_HINT);
+        material.color.setHex(hintStyle === 'remove' ? SLOT_HINT_REMOVE : SLOT_HINT_PLACE);
       } else if (paletteHighlight && paletteIsEmpty?.(pos)) {
         material.color.setHex(SLOT_HIGHLIGHT);
       } else {
@@ -155,19 +161,20 @@ export function buildTown(stage: StageDef): Town {
       paletteIsEmpty = isEmpty;
       refreshSlotColors();
     },
-    setHintSlot(pos) {
+    setHintSlot(pos, style = 'place') {
       hintKey = pos ? posKey(pos) : null;
+      hintStyle = style;
       refreshSlotColors();
     },
     flashHintSlot(pos) {
       const tile = slotTiles.get(posKey(pos));
       if (!tile) return;
       const material = tile.material as THREE.MeshLambertMaterial;
-      const base = material.color.getHex();
+      const hintColor = hintStyle === 'remove' ? SLOT_HINT_REMOVE : SLOT_HINT_PLACE;
       // きらっと1回だけ明るくして戻す(ループ点滅はしない)
       material.color.setHex(0xffffff);
       window.setTimeout(() => {
-        material.color.setHex(hintKey === posKey(pos) ? SLOT_HINT : base);
+        material.color.setHex(hintKey === posKey(pos) ? hintColor : SLOT_SAND);
       }, 280);
     },
   };

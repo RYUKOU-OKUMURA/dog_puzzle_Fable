@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
 import { findPath } from '../src/core/path';
-import { findHintTarget, findSolution, isStageSolvable } from '../src/core/solver';
+import { findHintTarget, findSolution, isStageSolvable, solveGrid } from '../src/core/solver';
 import { makeTestStage } from './helpers';
 
 describe('core/solver', () => {
@@ -55,5 +55,13 @@ describe('core/solver', () => {
 
   it('isStageSolvable はテストステージで true', () => {
     expect(isStageSolvable(makeTestStage())).toBe(true);
+  });
+
+  it('探索予算を超えたら判定不能(budget)として null 相当を返す', () => {
+    const grid = new Grid(makeTestStage());
+    // 空盤の解は数ノードで見つかるが、予算1なら開始直後に超過する
+    const outcome = solveGrid(grid, 1);
+    expect(outcome.status).toBe('budget');
+    expect(findSolution(grid, 1)).toBeNull();
   });
 });

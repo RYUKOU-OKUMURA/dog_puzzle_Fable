@@ -106,17 +106,45 @@ export class Screens {
     onNext: () => void,
     onZukan: () => void,
     onSelect: () => void,
+    extras?: { zukanComplete?: boolean; worldFinale?: boolean },
   ): void {
     const screen = document.createElement('div');
     screen.className = 'screen screen-dim';
 
     const card = document.createElement('div');
     card.className = 'card';
+
+    let title = 'ステージ クリア! ⭐';
+    let note = `おさんぽずかん <b>${collected}/${total} しゅるい</b> あつまったよ!`;
+    if (extras?.worldFinale && extras?.zukanComplete) {
+      title = 'ぜんぶ クリア! 🎉🌍';
+      note =
+        `ほんとうに おめでとう!<br />` +
+        `しばちゃんと せかいを あるいて、<br />` +
+        `ずかんも <b>${collected}/${total} しゅるい</b> ぜんぶ あつまったよ!`;
+    } else if (extras?.worldFinale) {
+      title = 'せかいの たび クリア! 🌍';
+      note =
+        `ほんとうに おめでとう!<br />` +
+        `しばちゃんと いっしょに せかいを あるいたね!<br />` +
+        `おさんぽずかん <b>${collected}/${total} しゅるい</b>`;
+    } else if (extras?.zukanComplete) {
+      title = 'ずかん コンプリート! 🎉';
+      note =
+        `すごい! 全部の いぬと ともだちに なったよ!<br />` +
+        `おさんぽずかん <b>${collected}/${total} しゅるい</b>`;
+    }
+
     card.innerHTML =
-      `<h2>ステージ クリア! ⭐</h2>` +
-      `<div class="dog-note" style="text-align:center">` +
-      `おさんぽずかん <b>${collected}/${total} しゅるい</b> あつまったよ!` +
-      `</div>`;
+      `<h2>${title}</h2>` + `<div class="dog-note" style="text-align:center">${note}</div>`;
+
+    // コンプリート時は短いハート演出(2秒以内・画面を覆い続けない)
+    if (extras?.zukanComplete || extras?.worldFinale) {
+      window.setTimeout(
+        () => this.burstHearts(window.innerWidth / 2, window.innerHeight * 0.35),
+        80,
+      );
+    }
 
     // 主ボタンは「次のステージがあるか」で切り替え。ずかんボタンは共通。
     const primaryButton = document.createElement('button');

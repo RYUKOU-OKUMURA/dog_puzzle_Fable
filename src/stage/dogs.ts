@@ -217,9 +217,57 @@ export const DOGS: Record<string, DogInfo> = {
     furColor: 0xd4a06a,
     scale: 1.22,
   },
+  husky: {
+    id: 'husky',
+    nameHtml: 'シベリアンハスキー',
+    shortName: 'ハスキー',
+    originHtml: '<ruby>ロシア<rt>ろしあ</rt></ruby>(シベリア)',
+    personality: 'げんきで なかまおもい',
+    size: 'おおきめ (たいじゅう 16〜27kg くらい)',
+    trivia:
+      'さむい ちほうで そりを ひいていた いぬ。あおくて きれいな めや、くろと しろの けが チャームポイントだよ。',
+    furColor: 0xc8d0d8,
+    scale: 1.15,
+  },
+  samoyed: {
+    id: 'samoyed',
+    nameHtml: 'サモエド',
+    shortName: 'サモエド',
+    originHtml: '<ruby>ロシア<rt>ろしあ</rt></ruby>(シベリア)',
+    personality: 'あかるくて ひとなつっこい',
+    size: 'ふつう〜おおきめ (たいじゅう 16〜30kg くらい)',
+    trivia:
+      'まっしろで ふわふわの けと、「サモエドスマイル」と よばれる わらいがおが ゆうめい。さむさに とっても つよいよ。',
+    furColor: 0xf4f2ee,
+    scale: 1.1,
+  },
+  shihTzu: {
+    id: 'shihTzu',
+    nameHtml: 'シーズー',
+    shortName: 'シーズー',
+    originHtml: '<ruby>中国<rt>ちゅうごく</rt></ruby>(チベットとも)',
+    personality: 'おだやかで あいそが いい',
+    size: 'ちいさい (たいじゅう 4〜7kg くらい)',
+    trivia:
+      'ながい けが ライオンの たてがみみたい。むかしの <ruby>中国<rt>ちゅうごく</rt></ruby>の きゅうでんで かわいがられていた いぬ だよ。',
+    furColor: 0xe8dcc8,
+    scale: 0.72,
+  },
+  dachshund: {
+    id: 'dachshund',
+    nameHtml: 'ダックスフンド',
+    shortName: 'ダックス',
+    originHtml: 'ドイツ',
+    personality: 'ゆうかんで こうきしんが つよい',
+    size: 'ちいさめ (あしが みじかくて どうが ながい)',
+    trivia:
+      'ドイツごで「アナグマの いぬ」。みじかい あしで あなに もぐって かりを てつだっていたんだ。いまは かぞくの アイドル。',
+    furColor: 0xb87333,
+    scale: 0.78,
+  },
 };
 
-/** 図鑑に載る順番(相棒の柴犬 → ワールド順の出会い) */
+/** 図鑑に載る順番(相棒の柴犬 → ワールド順の出会い)。全21種 */
 export const DOG_ORDER = [
   'shiba',
   'akita',
@@ -238,4 +286,8 @@ export const DOG_ORDER = [
   'bostonTerrier',
   'malamute',
   'labrador',
+  'husky',
+  'samoyed',
+  'shihTzu',
+  'dachshund',
 ];

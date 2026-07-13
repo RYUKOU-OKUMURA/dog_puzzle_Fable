@@ -1,5 +1,6 @@
 import { connectionsOf, DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS } from '../core/panel';
 import { findPath } from '../core/path';
+import { findHintTarget } from '../core/solver';
 import type { GridPos, PanelKind, StageDef } from '../core/types';
 import { posKey } from '../core/types';
 import type { SceneContext } from '../scene/renderer';
@@ -55,10 +56,16 @@ import {
   faceTowardIsometricCamera,
   headTilt,
   placeDogAt,
+  sitDown,
+  standUp,
   walkAlong,
   walkHeightsForRoute,
 } from './walk';
 
+/** しばちゃんヒント: 無操作で発火するまでの秒数 */
+const HINT_IDLE_MS = 90_000;
+/** お散歩失敗(道未完成・おやつ残り)がこの回数でヒント */
+const HINT_FAIL_THRESHOLD = 2;
 export type Phase =
   'select' | 'title' | 'worldSelect' | 'stageSelect' | 'puzzle' | 'walk' | 'encounter' | 'clear';
 
@@ -88,6 +95,11 @@ export class Game {
   /** ステージ選択の「もどる」先のワールド */
   private currentWorldId: string | null = null;
   phase: Phase = 'select';
+  /** お散歩失敗回数(ヒント発火用。ステージ入場でリセット) */
+  private walkFailCount = 0;
+  private idleTimerId: number | null = null;
+  /** ヒント演出中は操作・再発火しない */
+  private hintPlaying = false;
 
   constructor(deps: GameDeps) {
     this.deps = deps;
@@ -378,9 +390,12 @@ export class Game {
     this.runtime.reset();
     this.clearOverlays();
     this.resetShiba();
+    this.resetHintTracking();
+    this.runtime.puzzle.onUserAction = () => this.onPuzzleAction();
     this.deps.hud.setVisible(true);
     this.runtime.puzzle.enabled = true;
     this.deps.hud.showToast('みちパネルで おうちから ゴールまで つなげてね!', 3200);
+    this.armIdleTimer();
   }
 
   /** HUD経由の操作を現在のステージへ流す(ステージ差し替えに追従させるため Game を経由) */
@@ -398,11 +413,83 @@ export class Game {
 
   /** パズル中の「もどる」→ ステージ選択へ(配置は保存されないので途中退出でも安心) */
   onExitPuzzle(): void {
+    this.resetHintTracking();
     this.showStageSelect(this.currentWorldId ?? WORLDS[0]!.id);
   }
 
   openZukan(): void {
     this.deps.zukan.show(this.save, () => {});
+  }
+
+  // ---------- しばちゃんヒント ----------
+
+  private resetHintTracking(): void {
+    this.walkFailCount = 0;
+    this.hintPlaying = false;
+    this.clearIdleTimer();
+    this.runtime?.town.setHintSlot(null);
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimerId !== null) {
+      window.clearTimeout(this.idleTimerId);
+      this.idleTimerId = null;
+    }
+  }
+
+  private armIdleTimer(): void {
+    this.clearIdleTimer();
+    if (this.phase !== 'puzzle' || this.hintPlaying) return;
+    this.idleTimerId = window.setTimeout(() => {
+      void this.tryFireHint();
+    }, HINT_IDLE_MS);
+  }
+
+  private onPuzzleAction(): void {
+    if (this.phase !== 'puzzle' || this.hintPlaying) return;
+    this.armIdleTimer();
+  }
+
+  /**
+   * ヒント1回分: 正解ルート上の空き(またははずすべきマス)へ歩き、ちょこんと座り、マスを光らせる。
+   * UIボタンは置かない。ペナルティなし。
+   */
+  private async tryFireHint(): Promise<void> {
+    if (this.phase !== 'puzzle' || !this.runtime || this.hintPlaying) return;
+    const hint = findHintTarget(this.runtime.grid);
+    if (!hint) {
+      this.armIdleTimer();
+      return;
+    }
+
+    this.hintPlaying = true;
+    this.clearIdleTimer();
+    const { puzzle, town, stage } = this.runtime;
+    const { animator } = this.deps;
+    puzzle.enabled = false;
+    puzzle.selectKind(null);
+
+    // 道がつながっていなくてもヒント先へ直線でテクテク(世界観の救済演出)
+    const from = stage.start.pos;
+    this.resetShiba();
+    if (posKey(from) !== posKey(hint.pos)) {
+      await walkAlong(this.shiba, [from, hint.pos], stage, animator, 0.38);
+    }
+    await sitDown(this.shiba, animator);
+    town.setHintSlot(hint.pos);
+    town.flashHintSlot(hint.pos);
+    await animator.wait(1.0);
+    await standUp(this.shiba, animator);
+    if (posKey(from) !== posKey(hint.pos)) {
+      await walkAlong(this.shiba, [hint.pos, from], stage, animator, 0.28);
+    }
+    this.resetShiba();
+
+    this.hintPlaying = false;
+    if (this.phase === 'puzzle') {
+      puzzle.enabled = true;
+      this.armIdleTimer();
+    }
   }
 
   /**
@@ -413,10 +500,11 @@ export class Game {
    *  (3) おやつ残り(ゴールへ届くがおやつを取りこぼす) → お散歩に出ず、おやつを強調
    */
   async startWalk(): Promise<void> {
-    if (this.phase !== 'puzzle' || !this.runtime) return;
+    if (this.phase !== 'puzzle' || !this.runtime || this.hintPlaying) return;
     const { grid, stage, puzzle, treats } = this.runtime;
     const { hud, animator } = this.deps;
 
+    this.clearIdleTimer();
     const result = findPath(grid);
     this.phase = 'walk';
     puzzle.enabled = false;
@@ -424,6 +512,7 @@ export class Game {
     hud.setVisible(false);
 
     if (result.complete) {
+      this.resetHintTracking();
       // クリア: 全おやつを通るルートを歩く。通ったマスのおやつを「ぱくっ」と食べる
       const remaining = treats.remainingKeys();
       const eatIfTreat = (cell: GridPos): Promise<void> | void => {
@@ -469,9 +558,16 @@ export class Game {
       hud.showToast('おやつが のこってるよ! ぜんぶ とってね', 3000);
     }
 
+    this.walkFailCount += 1;
     this.phase = 'puzzle';
     puzzle.enabled = true;
     hud.setVisible(true);
+    if (this.walkFailCount >= HINT_FAIL_THRESHOLD) {
+      this.walkFailCount = 0;
+      await this.tryFireHint();
+    } else {
+      this.armIdleTimer();
+    }
   }
 
   /** ゴールでの出会い → 記念写真 → 出会いカード */
@@ -543,13 +639,19 @@ export class Game {
     this.phase = 'clear';
     const next = nextStageInWorld(WORLDS, stage.id);
     const backWorldId = this.currentWorldId ?? WORLDS[0]!.id;
+    const collected = countCollected(this.save);
+    const total = DOG_ORDER.length;
+    const zukanComplete = collected >= total;
+    const worldFinale = stage.id === 'w5-s4';
+
     screens.showClear(
-      countCollected(this.save),
-      DOG_ORDER.length,
+      collected,
+      total,
       next !== null,
       () => this.goNextStage(),
       () => this.openZukan(),
       () => this.showStageSelect(backWorldId),
+      { zukanComplete, worldFinale },
     );
   }
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { connectionsOf, DIR_OFFSET } from '../core/panel';
-import type { GridPos, SceneryKind, StageDef } from '../core/types';
+import type { GridPos, SceneryKind, StageDef, StageTheme } from '../core/types';
 import { posKey } from '../core/types';
 import { gridToWorld } from './coords';
 import { createPanelMesh } from './panelMesh';
@@ -9,7 +9,21 @@ const GRASS_A = 0xa9dd9d;
 const GRASS_B = 0x9ed394;
 const SLOT_SAND = 0xf0e2b6;
 const SLOT_HIGHLIGHT = 0xffc9d8;
+/** ヒント対象マスの常時ほんのり明るい色(ハイライトと同系のやわらかいピンク) */
+const SLOT_HINT = 0xffc9d8;
 const BASE_BROWN = 0xd9b98c;
+
+/** テーマ別の地面色(すべて design-guide 6.2 の既存パレット内) */
+const THEME_GROUND: Record<StageTheme, [number, number]> = {
+  // 雪: 白 + 水色の家壁色
+  snow: [0xffffff, 0xe4f3ff],
+  // あたたかい夜: 桃色壁 + クリーム(空は変えず、地面だけで夕暮れ感)
+  night: [0xffe3e9, 0xfff3dd],
+  // ちゅうかがい: 通常芝生をやや暖色寄りに(緑系パレット内)
+  chinatown: [0x7fcf74, 0xa9dd9d],
+  // おまつり: 花色の淡い市松
+  festival: [0xffe3e9, 0xf3ffe0],
+};
 
 const HOUSE_WALLS = [0xfff3dd, 0xffe3e9, 0xe4f3ff, 0xf3ffe0];
 const HOUSE_ROOFS = [0xe0604f, 0xf2903d, 0x7fbf7a, 0x6faed9];
@@ -35,6 +49,10 @@ export interface Town {
   cellTiles: THREE.Mesh[];
   /** パネル選択中に空きマスを目立たせる */
   setSlotsHighlighted(highlighted: boolean, isEmpty: (pos: GridPos) => boolean): void;
+  /** しばちゃんヒント: 特定スロットをやわらかく光らせる。null で解除 */
+  setHintSlot(pos: GridPos | null): void;
+  /** ヒント発火時のきらっと1回(ループしない) */
+  flashHintSlot(pos: GridPos): void;
 }
 
 export function buildTown(stage: StageDef): Town {
@@ -42,6 +60,11 @@ export function buildTown(stage: StageDef): Town {
   const cellTiles: THREE.Mesh[] = [];
   const slotTiles = new Map<string, THREE.Mesh>();
   const slotKeys = new Set(stage.slots.map(posKey));
+  const theme = stage.theme;
+  const groundPair = theme ? THEME_GROUND[theme] : ([GRASS_A, GRASS_B] as [number, number]);
+  let hintKey: string | null = null;
+  let paletteHighlight = false;
+  let paletteIsEmpty: ((pos: GridPos) => boolean) | null = null;
 
   // ジオラマの台座
   const base = new THREE.Mesh(
@@ -57,7 +80,7 @@ export function buildTown(stage: StageDef): Town {
     for (let z = 0; z < stage.size.h; z++) {
       const pos = { x, z };
       const isSlot = slotKeys.has(posKey(pos));
-      const grass = (x + z) % 2 === 0 ? GRASS_A : GRASS_B;
+      const grass = (x + z) % 2 === 0 ? groundPair[0] : groundPair[1];
       const tile = new THREE.Mesh(tileGeometry, lambert(isSlot ? SLOT_SAND : grass));
       const world = gridToWorld(pos, stage);
       tile.position.set(world.x, -0.06, world.z);
@@ -86,7 +109,7 @@ export function buildTown(stage: StageDef): Town {
   }
 
   // スタートのおうち(犬が前に立てるよう、出口と反対側に少し寄せる)
-  const house = placeAt(buildStartHouse(), stage.start.pos, stage);
+  const house = placeAt(buildStartHouse(theme), stage.start.pos, stage);
   const exitDir = DIR_OFFSET[connectionsOf('end', stage.start.rotation)[0]!];
   house.position.x -= exitDir.x * 0.3;
   house.position.z -= exitDir.z * 0.3;
@@ -95,19 +118,57 @@ export function buildTown(stage: StageDef): Town {
 
   // 添景(建物・木・花など)
   for (const item of stage.scenery) {
-    group.add(placeAt(buildScenery(item.kind, item.pos), item.pos, stage));
+    group.add(placeAt(buildScenery(item.kind, item.pos, theme), item.pos, stage));
+  }
+
+  // 夜テーマ: 家のそばに街灯(盤面ロジックには触れない装飾)
+  if (theme === 'night') {
+    for (const item of stage.scenery) {
+      if (item.kind === 'house') {
+        const lamp = placeAt(buildStreetLamp(), item.pos, stage);
+        lamp.position.x += 0.32;
+        group.add(lamp);
+      }
+    }
+  }
+
+  function refreshSlotColors(): void {
+    for (const [key, tile] of slotTiles) {
+      const [x, z] = key.split(',').map(Number);
+      const pos = { x: x!, z: z! };
+      const material = tile.material as THREE.MeshLambertMaterial;
+      if (hintKey === key) {
+        material.color.setHex(SLOT_HINT);
+      } else if (paletteHighlight && paletteIsEmpty?.(pos)) {
+        material.color.setHex(SLOT_HIGHLIGHT);
+      } else {
+        material.color.setHex(SLOT_SAND);
+      }
+    }
   }
 
   return {
     group,
     cellTiles,
     setSlotsHighlighted(highlighted, isEmpty) {
-      for (const [key, tile] of slotTiles) {
-        const [x, z] = key.split(',').map(Number);
-        const empty = isEmpty({ x: x!, z: z! });
-        const material = tile.material as THREE.MeshLambertMaterial;
-        material.color.setHex(highlighted && empty ? SLOT_HIGHLIGHT : SLOT_SAND);
-      }
+      paletteHighlight = highlighted;
+      paletteIsEmpty = isEmpty;
+      refreshSlotColors();
+    },
+    setHintSlot(pos) {
+      hintKey = pos ? posKey(pos) : null;
+      refreshSlotColors();
+    },
+    flashHintSlot(pos) {
+      const tile = slotTiles.get(posKey(pos));
+      if (!tile) return;
+      const material = tile.material as THREE.MeshLambertMaterial;
+      const base = material.color.getHex();
+      // きらっと1回だけ明るくして戻す(ループ点滅はしない)
+      material.color.setHex(0xffffff);
+      window.setTimeout(() => {
+        material.color.setHex(hintKey === posKey(pos) ? SLOT_HINT : base);
+      }, 280);
     },
   };
 }
@@ -125,14 +186,16 @@ function withShadow<T extends THREE.Object3D>(object: T): T {
   return object;
 }
 
-function buildStartHouse(): THREE.Group {
+function buildStartHouse(theme?: StageTheme): THREE.Group {
   const group = new THREE.Group();
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.5, 0.6), lambert(0xfff3dd));
   body.position.y = 0.25;
   group.add(body);
 
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.58, 0.42, 4), lambert(0xe0604f));
+  // 雪テーマ: 屋根を白く(既存白)。夜: 窓をあたたかい黄色に
+  const roofColor = theme === 'snow' ? 0xffffff : 0xe0604f;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.58, 0.42, 4), lambert(roofColor));
   roof.position.y = 0.71;
   roof.rotation.y = Math.PI / 4;
   group.add(roof);
@@ -141,7 +204,8 @@ function buildStartHouse(): THREE.Group {
   door.position.set(0, 0.12, 0.31);
   group.add(door);
 
-  const window1 = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.04), lambert(0xbfe4ff));
+  const windowColor = theme === 'night' ? 0xffd166 : 0xbfe4ff;
+  const window1 = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.04), lambert(windowColor));
   window1.position.set(-0.2, 0.3, 0.31);
   group.add(window1);
   const window2 = window1.clone();
@@ -172,14 +236,14 @@ function buildGoalMarker(): THREE.Group {
   return withShadow(group);
 }
 
-function buildScenery(kind: SceneryKind, pos: GridPos): THREE.Group {
+function buildScenery(kind: SceneryKind, pos: GridPos, theme?: StageTheme): THREE.Group {
   switch (kind) {
     case 'house':
-      return buildHouse(pos);
+      return buildHouse(pos, theme);
     case 'building':
       return buildBuilding(pos);
     case 'tree':
-      return buildTree(pos);
+      return buildTree(pos, theme);
     case 'flower':
       return buildFlowerBed(pos);
     case 'pond':
@@ -197,14 +261,26 @@ function buildScenery(kind: SceneryKind, pos: GridPos): THREE.Group {
     case 'cactus':
       return buildCactus(pos);
     case 'colorfulHouse':
-      return buildColorfulHouse(pos);
+      return buildColorfulHouse(pos, theme);
   }
 }
 
-function buildHouse(pos: GridPos): THREE.Group {
+/** あたたかい夜の街灯(くすみオレンジの灯+茶の柱。発光マテリアルは使わない) */
+function buildStreetLamp(): THREE.Group {
+  const group = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.7, 8), lambert(0x9c6b4a));
+  pole.position.y = 0.35;
+  group.add(pole);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), lambert(0xffd166));
+  lamp.position.y = 0.74;
+  group.add(lamp);
+  return withShadow(group);
+}
+
+function buildHouse(pos: GridPos, theme?: StageTheme): THREE.Group {
   const group = new THREE.Group();
   const wall = HOUSE_WALLS[hash(pos) % HOUSE_WALLS.length]!;
-  const roofColor = HOUSE_ROOFS[hash(pos, 1) % HOUSE_ROOFS.length]!;
+  const roofColor = theme === 'snow' ? 0xffffff : HOUSE_ROOFS[hash(pos, 1) % HOUSE_ROOFS.length]!;
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.42, 0.52), lambert(wall));
   body.position.y = 0.21;
@@ -218,6 +294,12 @@ function buildHouse(pos: GridPos): THREE.Group {
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.2, 0.04), lambert(0x9c6b4a));
   door.position.set(0, 0.1, 0.27);
   group.add(door);
+
+  if (theme === 'night') {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.03), lambert(0xffd166));
+    win.position.set(-0.16, 0.26, 0.27);
+    group.add(win);
+  }
 
   group.rotation.y = (hash(pos, 2) % 4) * (Math.PI / 2);
   return withShadow(group);
@@ -248,13 +330,27 @@ function buildBuilding(pos: GridPos): THREE.Group {
   return withShadow(group);
 }
 
-function buildTree(pos: GridPos): THREE.Group {
+function buildTree(pos: GridPos, theme?: StageTheme): THREE.Group {
   const group = new THREE.Group();
   const green = TREE_GREENS[hash(pos, 5) % TREE_GREENS.length]!;
 
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.32, 8), lambert(0x9c6b4a));
   trunk.position.y = 0.16;
   group.add(trunk);
+
+  // 雪テーマはモミの木風の三角すい重ね(既存緑+白い雪帽子)
+  if (theme === 'snow') {
+    const lower = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.36, 8), lambert(green));
+    lower.position.y = 0.48;
+    group.add(lower);
+    const mid = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.28, 8), lambert(green));
+    mid.position.y = 0.72;
+    group.add(mid);
+    const snowCap = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.16, 8), lambert(0xffffff));
+    snowCap.position.y = 0.92;
+    group.add(snowCap);
+    return withShadow(group);
+  }
 
   const leafBottom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 1), lambert(green));
   leafBottom.position.y = 0.52;
@@ -477,10 +573,14 @@ function buildCactus(pos: GridPos): THREE.Group {
 /**
  * W4 アメリカ・メキシコ: カラフルな家。パステル壁+テラコッタ屋根(6.2 パレット内)。
  */
-function buildColorfulHouse(pos: GridPos): THREE.Group {
+function buildColorfulHouse(pos: GridPos, theme?: StageTheme): THREE.Group {
   const group = new THREE.Group();
   const wall = HOUSE_WALLS[hash(pos) % HOUSE_WALLS.length]!;
-  const roofColor = HOUSE_ROOFS[hash(pos, 1) % HOUSE_ROOFS.length]!;
+  // ちゅうかがい・おまつり: くすみ赤の瓦屋根風(既存屋根赤)
+  const roofColor =
+    theme === 'chinatown' || theme === 'festival'
+      ? 0xe0604f
+      : HOUSE_ROOFS[hash(pos, 1) % HOUSE_ROOFS.length]!;
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.4, 0.5), lambert(wall));
   body.position.y = 0.2;
@@ -498,6 +598,13 @@ function buildColorfulHouse(pos: GridPos): THREE.Group {
   const window = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.03), lambert(0xffe9a3));
   window.position.set(-0.16, 0.26, 0.26);
   group.add(window);
+
+  // おまつり: 小さなランタン風の球(くすみ赤・点滅なし)
+  if (theme === 'festival' || theme === 'chinatown') {
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), lambert(0xe0604f));
+    lantern.position.set(0.22, 0.55, 0);
+    group.add(lantern);
+  }
 
   group.rotation.y = (hash(pos, 2) % 4) * (Math.PI / 2);
   return withShadow(group);

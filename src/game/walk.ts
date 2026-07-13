@@ -105,6 +105,33 @@ export async function celebrate(dog: DogModel, animator: Animator): Promise<void
   dog.group.position.y = 0;
 }
 
+/** ヒント演出: ちょこんと座る(胴を少し沈めて首をかしげる) */
+export async function sitDown(dog: DogModel, animator: Animator): Promise<void> {
+  const baseY = dog.group.position.y;
+  await animator.run(0.35, (t) => {
+    const e = easeInOut(t);
+    dog.group.position.y = baseY - 0.08 * e;
+    dog.group.scale.y = 1 - 0.12 * e;
+    dog.head.rotation.z = 0.25 * e;
+  });
+}
+
+/** 座りから立ち上がる(ヒント後に盤面操作へ戻る前) */
+export async function standUp(dog: DogModel, animator: Animator): Promise<void> {
+  const startY = dog.group.position.y;
+  const startScaleY = dog.group.scale.y;
+  const startTilt = dog.head.rotation.z;
+  await animator.run(0.28, (t) => {
+    const e = easeInOut(t);
+    dog.group.position.y = startY + (0 - startY) * e;
+    dog.group.scale.y = startScaleY + (1 - startScaleY) * e;
+    dog.head.rotation.z = startTilt * (1 - e);
+  });
+  dog.group.position.y = 0;
+  dog.group.scale.y = 1;
+  dog.head.rotation.z = 0;
+}
+
 /** 犬をマスの中心に置く(向きは facing 方向) */
 export function placeDogAt(
   dog: DogModel,

@@ -22,13 +22,20 @@ export class PuzzleController {
   private selectedKind: PanelKind | null = null;
   /** お散歩中は盤面をさわれなくする */
   enabled = true;
+  /** パネル操作があったときに呼ぶ(ヒントの無操作タイマー用) */
+  onUserAction: (() => void) | null = null;
 
   constructor(deps: PuzzleDeps) {
     this.deps = deps;
   }
 
+  private noteAction(): void {
+    this.onUserAction?.();
+  }
+
   /** パネル種の選択。UI経由の呼び出しは enabled で別途ガードされる */
   selectKind(kind: PanelKind | null): void {
+    if (kind !== null) this.noteAction();
     this.selectedKind = kind;
     this.deps.hud.setSelected(kind);
     this.deps.hud.hidePanelPopup();
@@ -41,11 +48,13 @@ export class PuzzleController {
     const panel = grid.panelAt(pos);
 
     if (panel && !panel.fixed) {
+      this.noteAction();
       hud.showPanelPopup(pos, this.screenOf(pos));
       return;
     }
 
     if (this.selectedKind && grid.canPlace(pos)) {
+      this.noteAction();
       grid.place(pos, this.selectedKind, 0);
       boardView.refresh(grid, pos);
       this.refreshHighlight();
@@ -58,12 +67,16 @@ export class PuzzleController {
 
   rotatePanel(pos: GridPos): void {
     const { grid, boardView } = this.deps;
-    if (grid.rotate(pos)) boardView.refresh(grid, pos);
+    if (grid.rotate(pos)) {
+      this.noteAction();
+      boardView.refresh(grid, pos);
+    }
   }
 
   removePanel(pos: GridPos): void {
     const { grid, boardView, hud } = this.deps;
     if (grid.remove(pos)) {
+      this.noteAction();
       boardView.refresh(grid, pos);
       hud.hidePanelPopup();
       this.refreshHighlight();

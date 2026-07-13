@@ -1,4 +1,12 @@
-import type { Dir, GridPos, PanelKind, Rotation, SceneryKind, StageDef } from '../core/types';
+import type {
+  Dir,
+  GridPos,
+  PanelKind,
+  Rotation,
+  SceneryKind,
+  StageDef,
+  StageTheme,
+} from '../core/types';
 import { MAX_TREATS, PLAYER_PANEL_KINDS, posKey } from '../core/types';
 
 /** defineStage への入力(テキスト地図フォーマット) */
@@ -18,6 +26,8 @@ export interface StageMapInput {
   treats?: string[];
   /** プレイヤーが使えるパネル種。未指定は全種。defineStage で検証済み */
   palette?: PanelKind[];
+  /** W5 変化球テーマ(雪・夜など)。未指定は通常 */
+  theme?: StageTheme;
 }
 
 /** parseStageMap の戻り値(空間情報) */
@@ -266,6 +276,7 @@ export function defineStage(input: StageMapInput): StageDef {
     difficulty: input.difficulty,
     treats,
     palette,
+    theme: input.theme,
   };
 }
 

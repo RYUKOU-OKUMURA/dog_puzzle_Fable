@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
-import { DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS, exitsFrom } from '../src/core/panel';
 import { findPath } from '../src/core/path';
-import type { Dir, GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
+import { isStageSolvable } from '../src/core/solver';
+import type { GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
 import { posKey } from '../src/core/types';
 import { w4s1 } from '../src/stage/w4s1';
 import { w4s2 } from '../src/stage/w4s2';
@@ -12,86 +12,15 @@ import { w4s4 } from '../src/stage/w4s4';
 /**
  * W4 ステージ4種の検証(M7)。橋・おやつ・ダミー。
  * 「橋を使わないと解けない」を最低2ステージでアサートする。
+ * ソルバは core/solver を使用(M8で昇格)。
  */
-
-function panelOptionsFor(stage: StageDef): Array<[PanelKind, Rotation]> {
-  const kinds = stage.palette ?? PLAYER_PANEL_KINDS;
-  const options: Array<[PanelKind, Rotation]> = [];
-  for (const kind of kinds) {
-    if (kind === 'straight') {
-      options.push(['straight', 0], ['straight', 90]);
-    } else if (kind === 'corner') {
-      options.push(['corner', 0], ['corner', 90], ['corner', 180], ['corner', 270]);
-    } else if (kind === 'tee') {
-      options.push(['tee', 0], ['tee', 90], ['tee', 180], ['tee', 270]);
-    }
-  }
-  return options;
-}
-
-/** 橋の通行軸を visited に含める(上下を別扱い) */
-function visitKey(pos: GridPos, enteredFrom: Dir | null, kind: PanelKind): string {
-  if (kind !== 'bridge' || enteredFrom === null) return posKey(pos);
-  const axis = enteredFrom === 'N' || enteredFrom === 'S' ? 'NS' : 'EW';
-  return `${posKey(pos)}:${axis}`;
-}
-
-function isSolvable(stage: StageDef): boolean {
-  const grid = new Grid(stage);
-  const visited = new Set<string>();
-  return solveFrom(grid, stage.start.pos, null, visited, panelOptionsFor(stage));
-}
-
-function solveFrom(
-  grid: Grid,
-  current: GridPos,
-  enteredFrom: Dir | null,
-  visited: Set<string>,
-  options: Array<[PanelKind, Rotation]>,
-): boolean {
-  if (posKey(current) === posKey(grid.stage.goal.pos)) {
-    return findPath(grid).complete;
-  }
-  const panel = grid.panelAt(current);
-  if (!panel) return false;
-  const vk = visitKey(current, enteredFrom, panel.kind);
-  if (visited.has(vk)) return false;
-  visited.add(vk);
-  try {
-    const exits = exitsFrom(panel.kind, panel.rotation, enteredFrom);
-    for (const dir of exits) {
-      const offset = DIR_OFFSET[dir];
-      const next: GridPos = { x: current.x + offset.x, z: current.z + offset.z };
-      if (!grid.inBounds(next)) continue;
-      const nextPanel = grid.panelAt(next);
-      if (nextPanel && grid.connectionsAt(next)?.includes(OPPOSITE[dir])) {
-        if (solveFrom(grid, next, OPPOSITE[dir], visited, options)) return true;
-      } else if (grid.isSlot(next) && !grid.panelAt(next)) {
-        for (const [kind, rot] of options) {
-          grid.place(next, kind, rot);
-          const placed = grid.connectionsAt(next)!;
-          if (placed.includes(OPPOSITE[dir])) {
-            if (solveFrom(grid, next, OPPOSITE[dir], visited, options)) {
-              grid.remove(next);
-              return true;
-            }
-          }
-          grid.remove(next);
-        }
-      }
-    }
-    return false;
-  } finally {
-    visited.delete(vk);
-  }
-}
 
 function expectIntendedSolutionSolves(
   stage: StageDef,
   placements: Array<{ pos: GridPos; kind: PanelKind; rotation: Rotation }>,
 ): Grid {
   const grid = new Grid(stage);
-  const allowed = new Set(stage.palette ?? PLAYER_PANEL_KINDS);
+  const allowed = new Set(stage.palette ?? ['straight', 'corner', 'tee']);
   for (const p of placements) {
     expect(allowed.has(p.kind), `${p.kind} は palette 内`).toBe(true);
     expect(grid.place(p.pos, p.kind, p.rotation), `${posKey(p.pos)} に配置できる`).toBe(true);
@@ -104,10 +33,8 @@ function expectIntendedSolutionSolves(
   for (const t of stage.treats ?? []) {
     expect(routeKeys.has(posKey(t)), `おやつ(${posKey(t)}) をルートが通る`).toBe(true);
   }
-  // 橋があるならルートが橋を通ること
   const bridges = stage.fixedRoads.filter((r) => r.kind === 'bridge');
   for (const b of bridges) {
-    // 全橋を通る必要はないが、少なくとも1つは通る(導入〜複合で設計)
     void b;
   }
   expect(
@@ -131,7 +58,6 @@ function expectBridgeRequired(
 ): void {
   const grid = new Grid(withoutBridges(stage));
   for (const p of placements) {
-    // 橋除去後も同じスロットへ置ける
     expect(grid.place(p.pos, p.kind, p.rotation)).toBe(true);
   }
   expect(findPath(grid).complete, `${stage.id}: 橋なしでは complete にならない`).toBe(false);
@@ -172,7 +98,7 @@ describe('w4-s1「アメリカの まち 1」', () => {
   });
 
   it('(f) 総当たりソルバでも解が存在する', () => {
-    expect(isSolvable(w4s1)).toBe(true);
+    expect(isStageSolvable(w4s1)).toBe(true);
   });
 });
 
@@ -211,7 +137,7 @@ describe('w4-s2「アメリカの まち 2」', () => {
   });
 
   it('(f) 総当たりソルバでも解が存在する', () => {
-    expect(isSolvable(w4s2)).toBe(true);
+    expect(isStageSolvable(w4s2)).toBe(true);
   });
 });
 
@@ -250,7 +176,7 @@ describe('w4-s3「メキシコの まち 1」', () => {
   });
 
   it('(f) 総当たりソルバでも解が存在する', () => {
-    expect(isSolvable(w4s3)).toBe(true);
+    expect(isStageSolvable(w4s3)).toBe(true);
   });
 });
 
@@ -293,6 +219,6 @@ describe('w4-s4「メキシコの まち 2」', () => {
   });
 
   it('(f) 総当たりソルバでも解が存在する', () => {
-    expect(isSolvable(w4s4)).toBe(true);
+    expect(isStageSolvable(w4s4)).toBe(true);
   });
 });

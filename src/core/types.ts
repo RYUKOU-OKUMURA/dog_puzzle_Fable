@@ -61,7 +61,15 @@ export interface StageDef {
   treats?: GridPos[];
   /** プレイヤーが使えるパネル種。未指定は全種。defineStage で検証済み */
   palette?: PanelKind[];
+  /**
+   * 見た目テーマ(W5 変化球)。未指定は通常の芝生。
+   * 色は design-guide 6.2 の既存パレット内のみを使う。
+   */
+  theme?: StageTheme;
 }
+
+/** W5 変化球の地面・雰囲気。空の色は変えず(6.1)、地面と添景で差別化する */
+export type StageTheme = 'snow' | 'night' | 'chinatown' | 'festival';
 
 /** おやつは最大3個(要件5.1)。core/path(経路判定)と stage/stageMap(パース検証)の両方から参照 */
 export const MAX_TREATS = 3;

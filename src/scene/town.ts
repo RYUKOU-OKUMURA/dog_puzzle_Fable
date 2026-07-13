@@ -194,6 +194,10 @@ function buildScenery(kind: SceneryKind, pos: GridPos): THREE.Group {
       return buildSnowMountain(pos);
     case 'fountain':
       return buildFountain(pos);
+    case 'cactus':
+      return buildCactus(pos);
+    case 'colorfulHouse':
+      return buildColorfulHouse(pos);
   }
 }
 
@@ -445,3 +449,56 @@ function buildFountain(pos: GridPos): THREE.Group {
   return withShadow(group);
 }
 
+/**
+ * W4 アメリカ・メキシコ: サボテン。既存 TREE_GREENS の緑で腕つき柱。高さは1.0未満。
+ */
+function buildCactus(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const green = lambert(TREE_GREENS[hash(pos, 5) % TREE_GREENS.length]!);
+
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.7, 8), green);
+  trunk.position.y = 0.35;
+  group.add(trunk);
+
+  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.28, 8), green);
+  armL.position.set(-0.16, 0.42, 0);
+  armL.rotation.z = Math.PI / 2.4;
+  group.add(armL);
+
+  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.22, 8), green);
+  armR.position.set(0.14, 0.5, 0);
+  armR.rotation.z = -Math.PI / 2.6;
+  group.add(armR);
+
+  group.rotation.y = (hash(pos, 7) % 4) * (Math.PI / 2);
+  return withShadow(group);
+}
+
+/**
+ * W4 アメリカ・メキシコ: カラフルな家。パステル壁+テラコッタ屋根(6.2 パレット内)。
+ */
+function buildColorfulHouse(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const wall = HOUSE_WALLS[hash(pos) % HOUSE_WALLS.length]!;
+  const roofColor = HOUSE_ROOFS[hash(pos, 1) % HOUSE_ROOFS.length]!;
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.4, 0.5), lambert(wall));
+  body.position.y = 0.2;
+  group.add(body);
+
+  // 平らめの屋根(アドベ風)+小さなひさし
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.08, 0.58), lambert(roofColor));
+  roof.position.y = 0.44;
+  group.add(roof);
+
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.04), lambert(0x9c6b4a));
+  door.position.set(0, 0.09, 0.26);
+  group.add(door);
+
+  const window = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.03), lambert(0xffe9a3));
+  window.position.set(-0.16, 0.26, 0.26);
+  group.add(window);
+
+  group.rotation.y = (hash(pos, 2) % 4) * (Math.PI / 2);
+  return withShadow(group);
+}

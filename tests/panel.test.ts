@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connectionsOf, nextRotation, rotateDir } from '../src/core/panel';
+import { connectionsOf, exitsFrom, nextRotation, rotateDir } from '../src/core/panel';
 
 describe('rotateDir', () => {
   it('90°で時計回りに1つ進む', () => {
@@ -42,6 +42,25 @@ describe('connectionsOf', () => {
     expect(connectionsOf('end', 0)).toEqual(['N']);
     expect(connectionsOf('end', 90)).toEqual(['E']);
     expect(connectionsOf('end', 270)).toEqual(['W']);
+  });
+
+  it('橋: 回転しても常に4方向', () => {
+    expect(connectionsOf('bridge', 0).sort()).toEqual(['E', 'N', 'S', 'W']);
+    expect(connectionsOf('bridge', 90).sort()).toEqual(['E', 'N', 'S', 'W']);
+  });
+});
+
+describe('exitsFrom', () => {
+  it('通常パネルは進入方向に関係なく全接続が出られる', () => {
+    expect(exitsFrom('tee', 180, 'W').sort()).toEqual(['E', 'S', 'W']);
+    expect(exitsFrom('straight', 0, null).sort()).toEqual(['N', 'S']);
+  });
+
+  it('橋は進入方向と同じ軸にしか出られない', () => {
+    expect(exitsFrom('bridge', 0, 'N').sort()).toEqual(['N', 'S']);
+    expect(exitsFrom('bridge', 0, 'S').sort()).toEqual(['N', 'S']);
+    expect(exitsFrom('bridge', 0, 'E').sort()).toEqual(['E', 'W']);
+    expect(exitsFrom('bridge', 0, 'W').sort()).toEqual(['E', 'W']);
   });
 });
 

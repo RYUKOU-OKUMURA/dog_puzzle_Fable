@@ -67,7 +67,7 @@ const END_ROTATION: Readonly<Record<Dir, Rotation>> = {
   W: 270,
 };
 
-/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜)。'山' はゆきやま、'噴' はふんすい(W3〜) */
+/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜)。'山' はゆきやま、'噴' はふんすい(W3〜)。'サ' はサボテン、'カ' はカラフルな家(W4〜) */
 export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   木: 'tree',
   家: 'house',
@@ -79,6 +79,8 @@ export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   電: 'phoneBox',
   山: 'snowMountain',
   噴: 'fountain',
+  サ: 'cactus',
+  カ: 'colorfulHouse',
 };
 
 /**
@@ -98,6 +100,8 @@ export const ROAD_TOKENS: Readonly<
   '├': { kind: 'tee', rotation: 90, connections: ['N', 'S', 'E'] }, // 北・南・東(西が閉じる)
   '┬': { kind: 'tee', rotation: 180, connections: ['W', 'E', 'S'] }, // 西・東・南(北が閉じる)
   '┤': { kind: 'tee', rotation: 270, connections: ['N', 'S', 'W'] }, // 北・南・西(東が閉じる)
+  // 橋: 上=南北 / 下=東西が独立。向きは1種。4方向とも盤内である必要がある
+  橋: { kind: 'bridge', rotation: 0, connections: ['N', 'S', 'E', 'W'] },
 };
 
 /**
@@ -297,6 +301,11 @@ function parseTreats(treats: string[], parsed: ParsedStageMap): GridPos[] {
   roadable.add(posKey(parsed.start.pos));
   roadable.add(posKey(parsed.goal.pos));
 
+  // 橋マスは上下どちらの道で取ったか曖昧になるため、おやつ禁止
+  const bridgeCells = new Set(
+    parsed.fixedRoads.filter((r) => r.kind === 'bridge').map((r) => posKey(r.pos)),
+  );
+
   const result: GridPos[] = [];
   const seen = new Set<string>();
   for (let i = 0; i < treats.length; i++) {
@@ -309,6 +318,9 @@ function parseTreats(treats: string[], parsed: ParsedStageMap): GridPos[] {
     const z = Number(parts[1]!);
     if (x < 0 || x >= parsed.size.w || z < 0 || z >= parsed.size.h) {
       fail(`おやつ ${i + 1}つめ: (${x},${z}) は ばんめんの そとです`);
+    }
+    if (bridgeCells.has(posKey({ x, z }))) {
+      fail(`おやつ ${i + 1}つめ: はしの マスには おやつを おけません`);
     }
     if (!roadable.has(posKey({ x, z }))) {
       fail(

@@ -6,8 +6,11 @@ export interface GridPos {
 
 export type Dir = 'N' | 'E' | 'S' | 'W';
 
-/** 'end' はスタート(おうち)・ゴール専用の端点。プレイヤーは配置できない */
-export type PanelKind = 'straight' | 'corner' | 'tee' | 'end';
+/**
+ * 'end' はスタート(おうち)・ゴール専用の端点。プレイヤーは配置できない。
+ * 'bridge' は上下独立交差の固定道のみ(プレイヤー配置不可。M7)。
+ */
+export type PanelKind = 'straight' | 'corner' | 'tee' | 'end' | 'bridge';
 
 /** プレイヤーが配置できるパネル種(パレットに並ぶ順)。stage/ の palette 検証からも参照 */
 export const PLAYER_PANEL_KINDS: readonly PanelKind[] = ['straight', 'corner', 'tee'];
@@ -31,7 +34,9 @@ export type SceneryKind =
   | 'brickHouse'
   | 'phoneBox'
   | 'snowMountain'
-  | 'fountain';
+  | 'fountain'
+  | 'cactus'
+  | 'colorfulHouse';
 
 export interface StageDef {
   id: string;

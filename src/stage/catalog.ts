@@ -11,10 +11,14 @@ import { w3s1 } from './w3s1';
 import { w3s2 } from './w3s2';
 import { w3s3 } from './w3s3';
 import { w3s4 } from './w3s4';
+import { w4s1 } from './w4s1';
+import { w4s2 } from './w4s2';
+import { w4s3 } from './w4s3';
+import { w4s4 } from './w4s4';
 
 /**
  * ワールドの定義。5ワールド(にほん→せかいのたび)。
- * 各ワールドは最大4ステージを持つ。未実装ワールド(M7以降)は stages を空配列にし、
+ * 各ワールドは最大4ステージを持つ。未実装ワールド(M8以降)は stages を空配列にし、
  * ワールド選択画面では「もうすぐ とうじょう」のロック扱いにする。
  */
 export interface WorldDef {
@@ -56,7 +60,7 @@ export const WORLDS: readonly WorldDef[] = [
     nameHtml: 'アメリカ',
     emoji: '🌵',
     sub: 'サボテンと カラフルな まち',
-    stages: [],
+    stages: [w4s1, w4s2, w4s3, w4s4],
   },
   {
     id: 'w5',

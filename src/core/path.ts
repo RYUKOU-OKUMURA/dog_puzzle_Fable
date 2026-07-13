@@ -1,6 +1,6 @@
 import type { Grid } from './grid';
-import { DIR_OFFSET, OPPOSITE } from './panel';
-import type { GridPos } from './types';
+import { DIR_OFFSET, OPPOSITE, exitsFrom } from './panel';
+import type { Dir, GridPos, PanelKind } from './types';
 import { MAX_TREATS, posKey } from './types';
 
 export interface PathResult {
@@ -19,14 +19,23 @@ export interface PathResult {
    * - complete: 全おやつを通ってゴールへ至るルート
    * - 道未完成(goalReachable=false): スタートから到達できる最遠セルまで(首かしげ演出用)
    * - おやつ残り(goalReachable=true & !complete): 歩かないので空
+   * 橋の上下を両方通る場合、同じ座標が2回現れうる。
    */
   route: GridPos[];
 }
 
+/** 橋の通行軸。通常パネルは軸を持たない('-') */
+type Passage = 'NS' | 'EW' | '-';
+
+function passageOf(kind: PanelKind, enteredFrom: Dir | null): Passage {
+  if (kind !== 'bridge' || enteredFrom === null) return '-';
+  return enteredFrom === 'N' || enteredFrom === 'S' ? 'NS' : 'EW';
+}
+
 /**
- * スタートから BFS して経路判定。状態を「(マス, 取ったおやつの集合ビットマスク)」に拡張し、
- * 全おやつを通ってゴールに至るルートを探す。近道があってもおやつを通る側を返す。
- * 隣接セル同士は「双方が互いに向けて接続を持つ」ときだけつながる。
+ * スタートから BFS して経路判定。
+ * 状態は「(マス, 橋の通行軸, 取ったおやつのビットマスク)」。
+ * 橋は N↔S / E↔W が独立なので軸を状態に含める。橋以外は従来どおり (マス, mask) と同値。
  */
 export function findPath(grid: Grid): PathResult {
   const start = grid.stage.start.pos;
@@ -47,24 +56,29 @@ export function findPath(grid: Grid): PathResult {
   }
   const allTreats = (1 << treatBit.size) - 1;
 
-  // 状態 = posKey + ':' + mask。parent でルート復元。
+  // 状態 = posKey + ':' + passage + ':' + mask。parent でルート復元。
   const parent = new Map<string, { pos: GridPos; fromKey: string | null }>();
   const dist = new Map<string, number>();
   // スタートマスにおやつがあれば最初から取得済み(スタートは「到着」扱いにならないため)
   const startMask = treatBit.get(posKey(start)) ?? 0;
-  const startKey = stateKey(start, startMask);
+  const startKey = stateKey(start, '-', startMask);
   parent.set(startKey, { pos: start, fromKey: null });
   dist.set(startKey, 0);
 
-  const queue: Array<{ pos: GridPos; mask: number }> = [{ pos: start, mask: startMask }];
+  const queue: Array<{ pos: GridPos; enteredFrom: Dir | null; mask: number }> = [
+    { pos: start, enteredFrom: null, mask: startMask },
+  ];
   let goalReached = false;
   let completeKey: string | null = null;
   // 道未完成時の首かしげ用: 到達した中で最遠の状態
   let furthestKey = startKey;
 
   while (queue.length > 0) {
-    const { pos: current, mask } = queue.shift()!;
-    const curKey = stateKey(current, mask);
+    const { pos: current, enteredFrom, mask } = queue.shift()!;
+    const panel = grid.panelAt(current);
+    if (!panel) continue;
+    const curPassage = passageOf(panel.kind, enteredFrom);
+    const curKey = stateKey(current, curPassage, mask);
     const curDist = dist.get(curKey)!;
     const curPosKey = posKey(current);
 
@@ -79,24 +93,29 @@ export function findPath(grid: Grid): PathResult {
     }
     if (curDist > dist.get(furthestKey)!) furthestKey = curKey;
 
-    const connections = grid.connectionsAt(current);
-    if (!connections) continue;
+    const exits = exitsFrom(panel.kind, panel.rotation, enteredFrom);
 
-    for (const dir of connections) {
+    for (const dir of exits) {
       const offset = DIR_OFFSET[dir];
       const next = { x: current.x + offset.x, z: current.z + offset.z };
       if (!grid.inBounds(next)) continue;
+      const nextPanel = grid.panelAt(next);
+      if (!nextPanel) continue;
       const nextConns = grid.connectionsAt(next);
       if (!nextConns || !nextConns.includes(OPPOSITE[dir])) continue;
 
+      // 隣マスへ dir で進むと、隣では OPPOSITE[dir] 側から進入する
+      const nextEntered = OPPOSITE[dir];
+      const nextPassage = passageOf(nextPanel.kind, nextEntered);
+
       // おやつマスを通ったら対応ビットを立てる
       const nextMask = mask | (treatBit.get(posKey(next)) ?? 0);
-      const nKey = stateKey(next, nextMask);
+      const nKey = stateKey(next, nextPassage, nextMask);
       if (parent.has(nKey)) continue;
 
       parent.set(nKey, { pos: next, fromKey: curKey });
       dist.set(nKey, curDist + 1);
-      queue.push({ pos: next, mask: nextMask });
+      queue.push({ pos: next, enteredFrom: nextEntered, mask: nextMask });
     }
   }
 
@@ -110,8 +129,8 @@ export function findPath(grid: Grid): PathResult {
   return { complete: false, goalReachable: goalReached, route };
 }
 
-function stateKey(pos: GridPos, mask: number): string {
-  return `${posKey(pos)}:${mask}`;
+function stateKey(pos: GridPos, passage: Passage, mask: number): string {
+  return `${posKey(pos)}:${passage}:${mask}`;
 }
 
 function buildRoute(

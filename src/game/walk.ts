@@ -1,13 +1,34 @@
+import type { Grid } from '../core/grid';
 import type { GridPos, StageDef } from '../core/types';
 import { gridToWorld } from '../scene/coords';
+import { BRIDGE_DECK_Y } from '../scene/panelMesh';
 import type { DogModel } from '../scene/shiba';
 import { Animator, easeInOut, shortestAngleTarget } from './tween';
 
 const TURN_SECONDS = 0.14;
 
 /**
+ * ルート各マスの歩行高さ。橋の南北(上)は BRIDGE_DECK_Y、東西(下)とそれ以外は 0。
+ * 判定は game/ が route の前後マスから決める(scene にロジックを置かない)。
+ */
+export function walkHeightsForRoute(grid: Grid, route: GridPos[]): number[] {
+  return route.map((cell, i) => {
+    const panel = grid.panelAt(cell);
+    if (!panel || panel.kind !== 'bridge') return 0;
+    // 前後どちらかと z が違えば南北通行(=上)、同じなら東西(=下)
+    const prev = i > 0 ? route[i - 1] : undefined;
+    const next = i < route.length - 1 ? route[i + 1] : undefined;
+    const neighbor = prev ?? next;
+    if (!neighbor) return 0;
+    if (neighbor.z !== cell.z) return BRIDGE_DECK_Y;
+    return 0;
+  });
+}
+
+/**
  * ルートのセル列に沿って犬をテクテク歩かせる。
  * onArrive は各マスへ到着した直後(そのマスの移動完了後)に呼ぶ。おやつを食べる演出等に使う。
+ * heights を渡すと橋の上下を滑らかに補間する(長さは route と同じ)。
  */
 export async function walkAlong(
   dog: DogModel,
@@ -16,12 +37,15 @@ export async function walkAlong(
   animator: Animator,
   secondsPerCell = 0.42,
   onArrive?: (cell: GridPos) => Promise<void> | void,
+  heights?: number[],
 ): Promise<void> {
   for (let i = 1; i < route.length; i++) {
     const from = gridToWorld(route[i - 1]!, stage);
     const to = gridToWorld(route[i]!, stage);
     const dx = to.x - from.x;
     const dz = to.z - from.z;
+    const fromY = heights?.[i - 1] ?? 0;
+    const toY = heights?.[i] ?? 0;
 
     // 進行方向へ向き直る(モデルは回転0で +z を向く)
     const currentAngle = dog.group.rotation.y;
@@ -32,17 +56,18 @@ export async function walkAlong(
       });
     }
 
-    // 1マスぶん移動 + 上下の弾みで「テクテク感」
+    // 1マスぶん移動 + 上下の弾みで「テクテク感」(橋の高さの上に加算)
     await animator.run(secondsPerCell, (t) => {
       dog.group.position.x = from.x + dx * t;
       dog.group.position.z = from.z + dz * t;
-      dog.group.position.y = Math.abs(Math.sin(t * Math.PI * 2)) * 0.06;
+      const baseY = fromY + (toY - fromY) * t;
+      dog.group.position.y = baseY + Math.abs(Math.sin(t * Math.PI * 2)) * 0.06;
       dog.group.rotation.z = Math.sin(t * Math.PI * 4) * 0.045;
     });
 
     if (onArrive) await onArrive(route[i]!);
   }
-  dog.group.position.y = 0;
+  dog.group.position.y = heights?.[route.length - 1] ?? 0;
   dog.group.rotation.z = 0;
 }
 

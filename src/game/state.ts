@@ -50,7 +50,14 @@ import type { ZukanView } from '../ui/zukan';
 import { StageRuntime } from './stageRuntime';
 import type { Animator } from './tween';
 import { photoZoomForFriendScale } from './photo';
-import { celebrate, faceTowardIsometricCamera, headTilt, placeDogAt, walkAlong } from './walk';
+import {
+  celebrate,
+  faceTowardIsometricCamera,
+  headTilt,
+  placeDogAt,
+  walkAlong,
+  walkHeightsForRoute,
+} from './walk';
 
 export type Phase =
   'select' | 'title' | 'worldSelect' | 'stageSelect' | 'puzzle' | 'walk' | 'encounter' | 'clear';
@@ -428,7 +435,16 @@ export class Game {
       };
       // route[0](スタート)は walkAlong の onArrive が発火しないため、歩き出しに食べる
       if (result.route.length > 0) await eatIfTreat(result.route[0]!);
-      await walkAlong(this.shiba, result.route, stage, animator, 0.42, (cell) => eatIfTreat(cell));
+      const heights = walkHeightsForRoute(grid, result.route);
+      await walkAlong(
+        this.shiba,
+        result.route,
+        stage,
+        animator,
+        0.42,
+        (cell) => eatIfTreat(cell),
+        heights,
+      );
       await this.meetFriend();
       return;
     }
@@ -436,12 +452,15 @@ export class Game {
     if (!result.goalReachable) {
       // (2) 道未完成: 行けるところまで歩いて、首をかしげて、おうちに戻る
       if (result.route.length > 1) {
-        await walkAlong(this.shiba, result.route, stage, animator);
+        const heights = walkHeightsForRoute(grid, result.route);
+        await walkAlong(this.shiba, result.route, stage, animator, 0.42, undefined, heights);
       }
       await headTilt(this.shiba, animator);
       hud.showToast('あれれ? みちが つながって いないみたい', 2800);
       if (result.route.length > 1) {
-        await walkAlong(this.shiba, [...result.route].reverse(), stage, animator, 0.2);
+        const back = [...result.route].reverse();
+        const backHeights = walkHeightsForRoute(grid, back);
+        await walkAlong(this.shiba, back, stage, animator, 0.2, undefined, backHeights);
       }
       this.resetShiba();
     } else {

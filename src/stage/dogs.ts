@@ -168,6 +168,55 @@ export const DOGS: Record<string, DogInfo> = {
     furColor: 0x3d2e28,
     scale: 1.28,
   },
+  chihuahua: {
+    id: 'chihuahua',
+    nameHtml: 'チワワ',
+    shortName: 'チワワ',
+    originHtml: 'メキシコ',
+    personality: 'ちいさくても きあいが じゅうぶん',
+    size: 'とても ちいさい (たいじゅう 1.5〜3kg くらい)',
+    trivia:
+      'せかいで いちばん ちいさい いぬの ひとつ。なまえは メキシコの <ruby>州<rt>しゅう</rt></ruby>「チワワ」から ついたよ。',
+    furColor: 0xe8b888,
+    scale: 0.65,
+  },
+  bostonTerrier: {
+    id: 'bostonTerrier',
+    nameHtml: 'ボストンテリア',
+    shortName: 'ボストン',
+    originHtml: '<ruby>アメリカ<rt>あめりか</rt></ruby>',
+    personality: 'あかるくて ひとなつっこい',
+    size: 'ちいさめ (たいじゅう 5〜11kg くらい)',
+    trivia:
+      'アメリカの <ruby>マサチューセッツ州<rt>まさちゅーせっつしゅう</rt></ruby>・ボストンで うまれた いぬ。くろと しろの ほうせきみたいな もようが かわいいよ。',
+    furColor: 0x4a3a35,
+    scale: 0.8,
+  },
+  malamute: {
+    id: 'malamute',
+    nameHtml: 'アラスカンマラミュート',
+    shortName: 'マラミュート',
+    originHtml: '<ruby>アメリカ<rt>あめりか</rt></ruby>(アラスカ)',
+    personality: 'ちからもちで なかよし',
+    size: 'おおきい (たいじゅう 34〜45kg くらい)',
+    trivia:
+      'アラスカの <ruby>先住民<rt>せんじゅうみん</rt></ruby>と いっしょに そりを ひいていた いぬ。ハスキーに にてるけど、もっと おおきくて がっしりしているよ。',
+    furColor: 0xc5cdd4,
+    scale: 1.3,
+  },
+  labrador: {
+    id: 'labrador',
+    nameHtml: 'ラブラドールレトリバー',
+    shortName: 'ラブラドール',
+    originHtml:
+      '<ruby>カナダ<rt>かなだ</rt></ruby>(げんしゅ) / <ruby>アメリカ<rt>あめりか</rt></ruby>で にんき',
+    personality: 'おとなしくて かしこく やさしい',
+    size: 'おおきい (たいじゅう 25〜36kg くらい)',
+    trivia:
+      '<ruby>盲導犬<rt>もうどうけん</rt></ruby>や <ruby>介助犬<rt>かいじょけん</rt></ruby>としても がんばる いぬ。およぐのが とくいで、しっぽは カヌーの オールみたいだよ。',
+    furColor: 0xd4a06a,
+    scale: 1.22,
+  },
 };
 
 /** 図鑑に載る順番(相棒の柴犬 → ワールド順の出会い) */
@@ -185,4 +234,8 @@ export const DOG_ORDER = [
   'papillon',
   'saintBernard',
   'bernese',
+  'chihuahua',
+  'bostonTerrier',
+  'malamute',
+  'labrador',
 ];

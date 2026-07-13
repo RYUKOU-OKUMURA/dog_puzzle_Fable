@@ -23,11 +23,11 @@ describe('道トークンの接続が core/panel と一致する', () => {
       expect(road.connections.slice().sort(), `トークン「${token}」`).toEqual(expected);
     }
   });
-  it('道トークンは10種', () => {
-    expect(Object.keys(ROAD_TOKENS).length).toBe(10);
+  it('道トークンは11種(既存10+橋)', () => {
+    expect(Object.keys(ROAD_TOKENS).length).toBe(11);
   });
-  it('添景トークンは10種', () => {
-    expect(Object.keys(SCENERY_TOKENS).length).toBe(10);
+  it('添景トークンは12種(既存10+サ+カ)', () => {
+    expect(Object.keys(SCENERY_TOKENS).length).toBe(12);
   });
   it('W2の添景トークン(レ=レンガ家 / 電=でんわボックス)が含まれる', () => {
     expect(SCENERY_TOKENS['レ']).toBe('brickHouse');
@@ -36,6 +36,13 @@ describe('道トークンの接続が core/panel と一致する', () => {
   it('W3の添景トークン(山=ゆきやま / 噴=ふんすい)が含まれる', () => {
     expect(SCENERY_TOKENS['山']).toBe('snowMountain');
     expect(SCENERY_TOKENS['噴']).toBe('fountain');
+  });
+  it('W4の添景トークン(サ=サボテン / カ=カラフルな家)が含まれる', () => {
+    expect(SCENERY_TOKENS['サ']).toBe('cactus');
+    expect(SCENERY_TOKENS['カ']).toBe('colorfulHouse');
+  });
+  it('橋トークンが bridge として含まれる', () => {
+    expect(ROAD_TOKENS['橋']).toMatchObject({ kind: 'bridge', rotation: 0 });
   });
 });
 
@@ -70,6 +77,7 @@ describe('parseStageMap: 正常系', () => {
       ['├', { kind: 'tee', rotation: 90 }], // 北・南・東
       ['┬', { kind: 'tee', rotation: 180 }], // 西・東・南
       ['┤', { kind: 'tee', rotation: 270 }], // 北・南・西
+      ['橋', { kind: 'bridge', rotation: 0 }],
     ];
     for (const [glyph, expected] of cases) {
       // グリフを3×3の中央(1,1)に置く。中央は四周とも盤内なので盤外チェックは通る。
@@ -303,6 +311,21 @@ describe('defineStage: treats のパースと検証', () => {
     expect(fn).toThrow(StageMapError);
     expect(fn).toThrow(/おなじ ばしょ/);
   });
+
+  it('橋マスのおやつは StageMapError', () => {
+    const fn = () =>
+      defineStage({
+        id: 't',
+        name: 't',
+        world: 'w4',
+        encounterDogId: 'd',
+        // 橋は4方向が盤内、かつ上下の│も盤外を向かないよう余白つき
+        map: ['. . . . .', '. . │ . .', '★ ─ 橋 ─ ◎', '. . │ . .', '. . . . .'],
+        treats: ['2,2'],
+      });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/はしの マスには おやつを おけません/);
+  });
 });
 
 describe('parseStageMap: W2の添景トークン(レ・電)', () => {
@@ -318,6 +341,32 @@ describe('parseStageMap: W3の添景トークン(山・噴)', () => {
     const parsed = parseStageMap(['★ ─ ◎', '山 .  噴']);
     expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'snowMountain' });
     expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'fountain' });
+  });
+});
+
+describe('parseStageMap: W4の橋・添景トークン', () => {
+  it('橋 は fixed な bridge パネルになる', () => {
+    const parsed = parseStageMap([
+      '. . . . .',
+      '. . │ . .',
+      '★ ─ 橋 ─ ◎',
+      '. . │ . .',
+      '. . . . .',
+    ]);
+    expect(parsed.fixedRoads).toContainEqual({
+      pos: { x: 2, z: 2 },
+      kind: 'bridge',
+      rotation: 0,
+    });
+    // ★◎ が東西の固定道に隣接するので向きが決まる
+    expect(parsed.start.rotation).toBe(90);
+    expect(parsed.goal.rotation).toBe(270);
+  });
+
+  it('サ は cactus、カ は colorfulHouse として添景に並ぶ', () => {
+    const parsed = parseStageMap(['★ ─ ◎', 'サ .  カ']);
+    expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'cactus' });
+    expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'colorfulHouse' });
   });
 });
 

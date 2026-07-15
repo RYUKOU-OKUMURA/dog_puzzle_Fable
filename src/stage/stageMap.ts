@@ -20,7 +20,7 @@ export interface StageMapInput {
   encounterDogId: string;
   /** 難度(🦴1〜5)。ステージ選択画面(M4)の表示に使う */
   difficulty?: number;
-  /** 1行=1マス行、トークンは空白区切り。行・列数は自由(最大10×10) */
+  /** 1行=1マス行、トークンは空白区切り。行・列数は自由(最大12×12) */
   map: string[];
   /** おやつのマス 'x,z'。M5(おやつ収集)から使用。M1では保持のみ */
   treats?: string[];
@@ -57,7 +57,9 @@ const GRASS_TOKEN = '.';
 const SLOT_TOKEN = '□';
 const START_TOKEN = '★';
 const GOAL_TOKEN = '◎';
-const MAX_SIZE = 10;
+// M10: 盤面大型化に対応。iPad縦持ち(820px幅)で12×12でもセル約65pxを保てる上限。
+// 14以上はパネルが小さくなりすぎるため採らない(plan.md M10 仕様)。
+const MAX_SIZE = 12;
 
 const DIRS: readonly Dir[] = ['N', 'E', 'S', 'W'];
 

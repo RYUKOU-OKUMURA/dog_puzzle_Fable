@@ -113,13 +113,25 @@ describe('parseStageMap: エラー系', () => {
     expect(() => parseStageMap(['. .', '.'])).toThrow(/ながさが そろっていません/);
   });
 
-  it('よこ11マス', () => {
-    expect(() => parseStageMap(['. . . . . . . . . . .'])).toThrow(/よこ 11マス\)。最大 10 まで/);
+  it('よこ13マス(上限12超過)', () => {
+    expect(() => parseStageMap(['. . . . . . . . . . . . .'])).toThrow(
+      /よこ 13マス\)。最大 12 まで/,
+    );
   });
 
-  it('たて11行', () => {
-    const elevenRows = Array.from({ length: 11 }, () => '.');
-    expect(() => parseStageMap(elevenRows)).toThrow(/たて 11マス\)。最大 10 まで/);
+  it('たて13行(上限12超過)', () => {
+    const rows = Array.from({ length: 13 }, () => '.');
+    expect(() => parseStageMap(rows)).toThrow(/たて 13マス\)。最大 12 まで/);
+  });
+
+  it('12マスちょうどは許容される(境界)', () => {
+    // 12×12 は上限内なのでサイズ検査は通る。1行目に★〜スロット〜◎の最小ルート。
+    const slotRow = '★ □ □ □ □ □ □ □ □ □ □ ◎';
+    const grassRow = '. . . . . . . . . . . .';
+    const map = Array.from({ length: 12 }, (_, i) => (i === 0 ? slotRow : grassRow));
+    const parsed = parseStageMap(map);
+    expect(parsed.size).toEqual({ w: 12, h: 12 });
+    expect(parsed.slots.length).toBe(10);
   });
 
   it('不明トークン', () => {

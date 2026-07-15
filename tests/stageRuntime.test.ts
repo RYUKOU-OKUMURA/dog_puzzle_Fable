@@ -46,6 +46,7 @@ function makeSceneContext(): SceneContext {
     camera,
     onFrame: () => {},
     capturePhotoAt: () => '',
+    fitToStage: () => {},
   };
 }
 

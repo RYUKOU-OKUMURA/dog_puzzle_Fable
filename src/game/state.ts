@@ -260,6 +260,8 @@ export class Game {
       hud: this.deps.hud,
       canvas: this.deps.canvas,
     });
+    // 盤面サイズに合わせてカメラ表示範囲と影を合わせる(M10。8×8は現状の見た目不变)
+    this.deps.sceneContext.fitToStage(stage.size.w, stage.size.h);
     this.deps.hud.updateStageName(stage.name);
     // palette 未指定は全種。ステージ切替時は選択も解除(非表示種に選択が残らないように)
     this.deps.hud.updatePalette(stage.palette ?? PLAYER_PANEL_KINDS);
@@ -740,5 +742,14 @@ export class Game {
     }
     this.loadStage(next.stage);
     this.startPuzzle();
+  }
+
+  /**
+   * 開発限定: カタログ外の任意ステージをロードする(M10 検証用。本番フローからは呼ばれない)。
+   * startPuzzle=true でパズル開始(タップ・お散歩・写真まで通せる)。false は背景表示のみ。
+   */
+  devLoadStage(stage: StageDef, startPuzzle: boolean): void {
+    this.loadStage(stage);
+    if (startPuzzle) this.startPuzzle();
   }
 }

@@ -1,8 +1,10 @@
 import { Grid } from './grid';
-import { DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS, exitsFrom } from './panel';
+import { connectionsOf, DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS, exitsFrom } from './panel';
 import { findPath } from './path';
 import type { Dir, GridPos, PanelKind, Rotation, StageDef } from './types';
 import { posKey } from './types';
+
+const ALL_DIRS: readonly Dir[] = ['N', 'E', 'S', 'W'];
 
 /** 解の1マスぶんの配置(プレイヤーパネルのみ) */
 export interface SolverPlacement {
@@ -59,6 +61,54 @@ function visitKey(pos: GridPos, enteredFrom: Dir | null, kind: PanelKind): strin
 }
 
 /**
+ * 到達可能性の緩和チェック(枝刈り用)。空きスロットを「全方位に接続する」とみなし、
+ * 置かれたパネル/固定道は実際の接続で、from からゴールまで到達できるか BFS する。
+ *
+ * 接続を過大評価するので:
+ * - 到達不能 ⟹ 空きを最大限活用してもゴールへ行けない ⟹ 解なし ⟹ 枝刈り安全(健全)
+ * - 到達可能 ⟹ 本当に解があるとは限らない(過大評価)→ 探索続行
+ * つまりこのチェックは「解を1つも見逃さない」=既存ステージの結果を変えない(M10)。
+ */
+function canReachGoal(grid: Grid, from: GridPos): boolean {
+  const goalKey = posKey(grid.stage.goal.pos);
+  const startKey = posKey(from);
+  if (startKey === goalKey) return true;
+  const seen = new Set<string>([startKey]);
+  const queue: GridPos[] = [from];
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    const curExits = relaxedExits(grid, cur);
+    if (curExits === null) continue;
+    for (const dir of ALL_DIRS) {
+      if (curExits !== 'open' && !curExits.includes(dir)) continue;
+      const nb: GridPos = { x: cur.x + DIR_OFFSET[dir].x, z: cur.z + DIR_OFFSET[dir].z };
+      if (!grid.inBounds(nb)) continue;
+      const key = posKey(nb);
+      if (seen.has(key)) continue;
+      const nbExits = relaxedExits(grid, nb);
+      if (nbExits === null) continue; // 芝生/添景は通行不可
+      if (nbExits !== 'open' && !nbExits.includes(OPPOSITE[dir])) continue;
+      if (key === goalKey) return true;
+      seen.add(key);
+      queue.push(nb);
+    }
+  }
+  return false;
+}
+
+/**
+ * 到達可能性用のマスの接続(緩和)。
+ * - パネルあり: 実際の接続方向(橋は過大評価して全方位扱い=健全)
+ * - 空きスロット: 'open'(全方位に接続するとみなす)
+ * - 芝生/添景などパネルのない非スロット: null(通行不可)
+ */
+function relaxedExits(grid: Grid, pos: GridPos): readonly Dir[] | 'open' | null {
+  const panel = grid.panelAt(pos);
+  if (panel) return connectionsOf(panel.kind, panel.rotation);
+  return grid.isSlot(pos) ? 'open' : null;
+}
+
+/**
  * 現在の盤面からクリア配置を探す(予算付き)。
  *
  * 既知の制約: visited がおやつマスクを含まないため、
@@ -67,6 +117,9 @@ function visitKey(pos: GridPos, enteredFrom: Dir | null, kind: PanelKind): strin
  */
 export function solveGrid(grid: Grid, nodeBudget = SOLVER_NODE_BUDGET): SolveOutcome {
   if (findPath(grid).complete) return { status: 'solved', placements: [] };
+
+  // 空きスロットを全部道とみなしてもゴールへ届かない盤面は、探索せずに解なし(M10 枝刈り)
+  if (!canReachGoal(grid, grid.stage.start.pos)) return { status: 'none' };
 
   const options = panelOptionsFor(grid.stage);
   const visited = new Set<string>();
@@ -207,6 +260,9 @@ function solveFrom(
   if (visited.has(vk)) return false;
   visited.add(vk);
   try {
+    // ここからの配置でゴールへ届かない(緩和到達判定)なら、これ以上探さない(M10 枝刈り)
+    if (!canReachGoal(grid, current)) return false;
+
     const exits = exitsFrom(panel.kind, panel.rotation, enteredFrom);
     for (const dir of exits) {
       const offset = DIR_OFFSET[dir];

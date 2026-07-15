@@ -8,10 +8,18 @@ export interface SceneContext {
   onFrame(callback: (deltaSeconds: number) => void): void;
   /** 指定ワールド座標にズームして正方形の記念写真を撮る(JPEG dataURL) */
   capturePhotoAt(targetX: number, targetZ: number, zoom: number, size: number): string;
+  /** ステージサイズに合わせてカメラの表示範囲と影の範囲を更新(ステージ切替で呼ぶ) */
+  fitToStage(w: number, h: number): void;
 }
 
-/** 画面に収めたい盤面の広がり(ワールド単位) */
-const VIEW_SIZE = 10.5;
+/**
+ * 8×8(盤面の広がり = セル数-1 = 7)のときの基準ビューサイズ。
+ * 8×8 はこの値で現状の見た目と完全一致させる(M10「既存8×8は現状と同一」)。
+ * 大きい盤面は広がりに比例して引きで映す。記念写真の構図もこの基準に固定する。
+ */
+const BASE_VIEW_SIZE = 10.5;
+/** 8×8 の広がり。viewSize の比率計算の分母 */
+const BASE_SPAN = 7;
 
 /** 古典的アイソメトリック: 方位45°・仰角約35° */
 const CAMERA_OFFSET = new THREE.Vector3(10, 10, 10);
@@ -36,21 +44,28 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   sun.position.set(6, 12, 4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -8;
-  sun.shadow.camera.right = 8;
-  sun.shadow.camera.top = 8;
-  sun.shadow.camera.bottom = -8;
   sun.shadow.camera.far = 40;
   scene.add(sun);
 
-  function resize(): void {
+  // 盤面サイズに連動する値。既定は 8×8(現状の見た目)。
+  let viewSize = BASE_VIEW_SIZE;
+  let shadowExtent = 8;
+
+  function applyShadowExtent(): void {
+    sun.shadow.camera.left = -shadowExtent;
+    sun.shadow.camera.right = shadowExtent;
+    sun.shadow.camera.top = shadowExtent;
+    sun.shadow.camera.bottom = -shadowExtent;
+    sun.shadow.camera.updateProjectionMatrix();
+  }
+
+  /** 指定ビューサイズでカメラの錐台を画面アスペクトに合わせて設定 */
+  function applyFrustum(vs: number): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    renderer.setSize(width, height);
-
     const aspect = width / height;
     // 縦長画面でも盤面全体が入るよう、狭い方に合わせる
-    const halfHeight = aspect >= 1 ? VIEW_SIZE / 2 : VIEW_SIZE / 2 / aspect;
+    const halfHeight = aspect >= 1 ? vs / 2 : vs / 2 / aspect;
     const halfWidth = halfHeight * aspect;
     camera.left = -halfWidth;
     camera.right = halfWidth;
@@ -59,6 +74,12 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
     camera.updateProjectionMatrix();
   }
 
+  function resize(): void {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    applyFrustum(viewSize);
+  }
+
+  applyShadowExtent();
   window.addEventListener('resize', resize);
   resize();
 
@@ -88,7 +109,8 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
         targetZ + CAMERA_OFFSET.z,
       );
       camera.zoom = zoom;
-      camera.updateProjectionMatrix();
+      // 構図をステージサイズに左右されないよう、写真は常に8×8基準の錐台で撮る(M10)
+      applyFrustum(BASE_VIEW_SIZE);
 
       // preserveDrawingBuffer なしでも、描画直後の同期読み出しなら取得できる
       renderer.render(scene, camera);
@@ -112,8 +134,17 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
 
       camera.position.copy(originalPosition);
       camera.zoom = originalZoom;
-      camera.updateProjectionMatrix();
+      applyFrustum(viewSize);
       return canvas2d.toDataURL('image/jpeg', 0.85);
+    },
+    fitToStage(w, h) {
+      // 盤面のワールド広がり(セル数-1)に比例。8×8(span7)で BASE_VIEW_SIZE → 見た目不変
+      const span = Math.max(w, h) - 1;
+      viewSize = BASE_VIEW_SIZE * (span / BASE_SPAN);
+      // 影範囲は盤の対角半径+余裕。8〜10マスは従来 ±8 のまま(下限で固定 → 影見た目不変)
+      shadowExtent = Math.max(8, Math.SQRT2 * (Math.max(w, h) / 2 + 0.5));
+      applyShadowExtent();
+      applyFrustum(viewSize);
     },
   };
 }

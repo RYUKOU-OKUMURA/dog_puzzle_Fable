@@ -64,4 +64,13 @@ if (import.meta.env.DEV) {
       },
     },
   });
+  // M10 検証用: 12×12 盤面を読み込むフック。動的importにより本番bundleには含めない。
+  void import('./stage/devStages').then(({ VERIFY_12X12 }) => {
+    Object.assign(window, {
+      __gameDev: {
+        playVerify12: () => game.devLoadStage(VERIFY_12X12, true),
+        bgVerify12: () => game.devLoadStage(VERIFY_12X12, false),
+      },
+    });
+  });
 }

@@ -12,6 +12,7 @@ import {
   deleteSave,
   deleteV1,
   emptySave,
+  ensureShiba,
   loadProfileIndex,
   loadSave,
   markCleared,
@@ -751,5 +752,28 @@ export class Game {
   devLoadStage(stage: StageDef, startPuzzle: boolean): void {
     this.loadStage(stage);
     if (startPuzzle) this.startPuzzle();
+  }
+
+  /**
+   * 開発限定: 全ステージクリア + 図鑑全犬種登録のダミーセーブを現プロフィールへ書き込む。
+   * 写真は null(プレースホルダ)。ワールド解放確認や M11 通し確認用。
+   */
+  devUnlockAll(): boolean {
+    if (!this.profileId) return false;
+    const save = emptySave();
+    ensureShiba(save);
+    const now = new Date().toISOString();
+    for (const world of WORLDS) {
+      for (const stage of world.stages) {
+        save.stages[stage.id] = { cleared: true };
+        if (!save.zukan[stage.encounterDogId]) {
+          save.zukan[stage.encounterDogId] = { metAt: now, photo: null };
+        }
+      }
+    }
+    this.save = save;
+    persistSave(this.profileId, save);
+    this.showWorldSelect();
+    return true;
   }
 }

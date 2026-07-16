@@ -4,11 +4,18 @@ export {
   emptySave,
   ensureShiba,
   migrateStageIds,
+  normalizeSaveData,
   parseV1Save,
   type SaveData,
   type ZukanEntry,
 } from './convert';
-import { emptySave, ensureShiba, migrateStageIds, type SaveData } from './convert';
+import {
+  emptySave,
+  ensureShiba,
+  migrateStageIds,
+  normalizeSaveData,
+  type SaveData,
+} from './convert';
 
 /** フェーズ1の単一セーブ(プロフィール導入前)。移行元としてのみ参照する */
 const V1_KEY = 'shiba-osanpo-save-v1';
@@ -21,14 +28,14 @@ function saveKey(profileId: string): string {
 
 /** プロフィール別セーブを読み込む。柴犬エントリを保証して返す */
 export function loadSave(profileId: string): SaveData {
-  const save = emptySave();
+  let save = emptySave();
   try {
     const raw = localStorage.getItem(saveKey(profileId));
     if (raw) {
-      const parsed = JSON.parse(raw) as SaveData;
+      const parsed = JSON.parse(raw) as { version?: unknown };
+      // 型の壊れた値(zukan が文字列、entry が配列等)を素通りさせず normalizeSaveData で検証する
       if (parsed && parsed.version === 2) {
-        save.zukan = parsed.zukan ?? {};
-        save.stages = parsed.stages ?? {};
+        save = normalizeSaveData(parsed);
       }
     }
   } catch {
@@ -42,14 +49,27 @@ export function loadSave(profileId: string): SaveData {
 
 /**
  * セーブを書き込む。成否を返す(移行で「保存できたのに古いデータを消す」事故を防ぐため)。
+ * 容量不足時は、支配項である写真(JPEG dataURL)を全て null にしたコピーで1回だけ再試行する。
+ * 写真はプロフィール選択時・再クリア時に撮り直されるため復元可能だが、
+ * クリア進捗は復元不可なので優先して残す。
  */
 export function persistSave(profileId: string, save: SaveData): boolean {
   try {
     localStorage.setItem(saveKey(profileId), JSON.stringify(save));
     return true;
   } catch {
-    // 容量不足などで保存できなくてもゲームは続行できる
-    return false;
+    try {
+      const photoless: SaveData = {
+        ...save,
+        zukan: Object.fromEntries(
+          Object.entries(save.zukan).map(([id, entry]) => [id, { ...entry, photo: null }]),
+        ),
+      };
+      localStorage.setItem(saveKey(profileId), JSON.stringify(photoless));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

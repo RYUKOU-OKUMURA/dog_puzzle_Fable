@@ -37,6 +37,34 @@ export function connectionsOf(kind: PanelKind, rotation: Rotation): Dir[] {
   return BASE_CONNECTIONS[kind]!.map((dir) => rotateDir(dir, rotation));
 }
 
+const ALL_ROTATIONS: readonly Rotation[] = [0, 90, 180, 270];
+
+/**
+ * 回転しても接続が同じになる重複を除いた回転候補のキャッシュ(kind → 0°から昇順の Rotation[])。
+ * BASE_CONNECTIONS が全 PanelKind を持つことを型で保証しているので、キーもそこから導出する
+ * (新パネル種を足したときの記入漏れを防ぐ)。
+ */
+const DISTINCT_ROTATIONS: Record<PanelKind, readonly Rotation[]> = (() => {
+  const table = {} as Record<PanelKind, readonly Rotation[]>;
+  for (const kind of Object.keys(BASE_CONNECTIONS) as PanelKind[]) {
+    const seen = new Set<string>();
+    const rotations: Rotation[] = [];
+    for (const rotation of ALL_ROTATIONS) {
+      const key = connectionsOf(kind, rotation).slice().sort().join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rotations.push(rotation);
+    }
+    table[kind] = rotations;
+  }
+  return table;
+})();
+
+/** 回転しても接続が同じになる重複を除いた回転候補(0°から昇順)。ソルバの探索候補と新パネル種追加の一元化用 */
+export function distinctRotationsOf(kind: PanelKind): readonly Rotation[] {
+  return DISTINCT_ROTATIONS[kind];
+}
+
 /**
  * マスに enteredFrom 方向から入ったとき、出られる方向。
  * - 通常パネル: 持っている接続は全部行き来できる(従来と同値)

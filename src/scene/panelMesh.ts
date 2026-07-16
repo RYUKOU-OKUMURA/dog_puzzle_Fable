@@ -41,7 +41,6 @@ export function createPanelMesh(
 
   const group = new THREE.Group();
   const dirs = connectionsOf(kind, rotation);
-  const materials: THREE.MeshLambertMaterial[] = [];
 
   const material = (color: number) => {
     const mat = new THREE.MeshLambertMaterial({ color });
@@ -49,7 +48,6 @@ export function createPanelMesh(
       mat.transparent = true;
       mat.opacity = 0.55;
     }
-    materials.push(mat);
     return mat;
   };
 
@@ -98,7 +96,6 @@ export function createPanelMesh(
     group.add(dash);
   }
 
-  group.userData.materials = materials;
   return group;
 }
 
@@ -107,14 +104,12 @@ export function createPanelMesh(
  */
 function createBridgeMesh(options: PanelMeshOptions): THREE.Group {
   const group = new THREE.Group();
-  const materials: THREE.MeshLambertMaterial[] = [];
   const material = (color: number) => {
     const mat = new THREE.MeshLambertMaterial({ color });
     if (options.preview) {
       mat.transparent = true;
       mat.opacity = 0.55;
     }
-    materials.push(mat);
     return mat;
   };
 
@@ -173,6 +168,5 @@ function createBridgeMesh(options: PanelMeshOptions): THREE.Group {
     group.add(dash);
   }
 
-  group.userData.materials = materials;
   return group;
 }

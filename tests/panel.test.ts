@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { connectionsOf, exitsFrom, nextRotation, rotateDir } from '../src/core/panel';
+import {
+  connectionsOf,
+  distinctRotationsOf,
+  exitsFrom,
+  nextRotation,
+  rotateDir,
+} from '../src/core/panel';
 
 describe('rotateDir', () => {
   it('90°で時計回りに1つ進む', () => {
@@ -61,6 +67,28 @@ describe('exitsFrom', () => {
     expect(exitsFrom('bridge', 0, 'S').sort()).toEqual(['N', 'S']);
     expect(exitsFrom('bridge', 0, 'E').sort()).toEqual(['E', 'W']);
     expect(exitsFrom('bridge', 0, 'W').sort()).toEqual(['E', 'W']);
+  });
+});
+
+describe('distinctRotationsOf', () => {
+  it('まっすぐ: 180°回転しても同じ接続になるので2通り', () => {
+    expect(distinctRotationsOf('straight')).toEqual([0, 90]);
+  });
+
+  it('曲がり角: 4通りとも異なる接続', () => {
+    expect(distinctRotationsOf('corner')).toEqual([0, 90, 180, 270]);
+  });
+
+  it('T字路: 4通りとも異なる接続', () => {
+    expect(distinctRotationsOf('tee')).toEqual([0, 90, 180, 270]);
+  });
+
+  it('橋: 回転しても常に同じ接続なので1通り', () => {
+    expect(distinctRotationsOf('bridge')).toEqual([0]);
+  });
+
+  it('端点: 4方向とも異なる接続', () => {
+    expect(distinctRotationsOf('end')).toEqual([0, 90, 180, 270]);
   });
 });
 

@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { migrateStageIds, normalizeProfile } from '../src/save/storage';
-import { emptySave } from '../src/save/convert';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  migrateStageIds,
+  normalizeProfile,
+  normalizeSaveData,
+  persistSave,
+} from '../src/save/storage';
+import { emptySave, type SaveData } from '../src/save/convert';
 import { DEFAULT_ICON_ID } from '../src/save/profiles';
 
 describe('normalizeProfile: 壊れデータの修復(純粋)', () => {
@@ -101,5 +106,118 @@ describe('migrateStageIds: 古いステージidのクリア記録を現行idへ(
     save.stages = { stage01: { cleared: true } };
     const migrated = migrateStageIds(save);
     expect(migrated.zukan).toEqual({ akita: { metAt: 'x', photo: null } });
+  });
+});
+
+describe('normalizeSaveData: 型の壊れたセーブデータの正規化(純粋)', () => {
+  it('正常なデータはそのまま通す', () => {
+    const input = {
+      version: 2,
+      zukan: { shiba: { metAt: '2026-01-01T00:00:00.000Z', photo: 'data:image/jpeg;base64,x' } },
+      stages: { 'w1-s1': { cleared: true } },
+    };
+    expect(normalizeSaveData(input)).toEqual({
+      version: 2,
+      zukan: { shiba: { metAt: '2026-01-01T00:00:00.000Z', photo: 'data:image/jpeg;base64,x' } },
+      stages: { 'w1-s1': { cleared: true } },
+    });
+  });
+
+  it('photo が null のエントリも通す', () => {
+    const input = { zukan: { shiba: { metAt: 'x', photo: null } } };
+    expect(normalizeSaveData(input).zukan).toEqual({ shiba: { metAt: 'x', photo: null } });
+  });
+
+  it('input 自体が null / undefined / 文字列 / 配列 → 空のセーブ', () => {
+    expect(normalizeSaveData(null)).toEqual(emptySave());
+    expect(normalizeSaveData(undefined)).toEqual(emptySave());
+    expect(normalizeSaveData('broken')).toEqual(emptySave());
+    expect(normalizeSaveData([1, 2, 3])).toEqual(emptySave());
+  });
+
+  it('zukan / stages が文字列や配列 → 空にフォールバック', () => {
+    expect(normalizeSaveData({ zukan: 'broken', stages: [] }).zukan).toEqual({});
+    expect(normalizeSaveData({ zukan: 'broken', stages: [] }).stages).toEqual({});
+  });
+
+  it('zukan の entry が配列や null → そのidは無視', () => {
+    const input = {
+      zukan: { shiba: [1, 2], akita: null, poodle: { metAt: 'x', photo: null } },
+    };
+    expect(normalizeSaveData(input).zukan).toEqual({ poodle: { metAt: 'x', photo: null } });
+  });
+
+  it('zukan の metAt が型違い(数値)→ そのidは無視', () => {
+    const input = { zukan: { shiba: { metAt: 123, photo: null } } };
+    expect(normalizeSaveData(input).zukan).toEqual({});
+  });
+
+  it('zukan の photo が型違い(数値)→ そのidは無視', () => {
+    const input = { zukan: { shiba: { metAt: 'x', photo: 123 } } };
+    expect(normalizeSaveData(input).zukan).toEqual({});
+  });
+
+  it('stages の entry が型違い(cleared が文字列)→ そのidは無視', () => {
+    const input = { stages: { 'w1-s1': { cleared: 'yes' } } };
+    expect(normalizeSaveData(input).stages).toEqual({});
+  });
+
+  it('一部だけ壊れている場合は有効なエントリだけ残す', () => {
+    const input = {
+      zukan: { shiba: { metAt: 'x', photo: null }, broken: 'nope' },
+      stages: { 'w1-s1': { cleared: true }, 'w1-s2': 'nope' },
+    };
+    expect(normalizeSaveData(input)).toEqual({
+      version: 2,
+      zukan: { shiba: { metAt: 'x', photo: null } },
+      stages: { 'w1-s1': { cleared: true } },
+    });
+  });
+});
+
+describe('persistSave: 容量不足フォールバック', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function makeSave(): SaveData {
+    const save = emptySave();
+    save.zukan['shiba'] = { metAt: 'x', photo: 'data:image/jpeg;base64,'.padEnd(500, 'a') };
+    return save;
+  }
+
+  it('大きい値で1回目 throw → 写真なしのコピーで再試行して成功する', () => {
+    const store = new Map<string, string>();
+    let calls = 0;
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        calls += 1;
+        if (calls === 1) throw new Error('QuotaExceededError');
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    });
+
+    const ok = persistSave('p1', makeSave());
+
+    expect(ok).toBe(true);
+    expect(calls).toBe(2);
+    const saved = JSON.parse(store.get('save:v2:p1')!) as SaveData;
+    expect(saved.zukan['shiba']?.photo).toBeNull();
+  });
+
+  it('常に throw → false を返す(クリア進捗も保存できない)', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: () => {},
+    });
+
+    expect(persistSave('p1', makeSave())).toBe(false);
   });
 });

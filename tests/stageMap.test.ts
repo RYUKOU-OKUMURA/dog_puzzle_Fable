@@ -3,6 +3,7 @@ import { connectionsOf } from '../src/core/panel';
 import { Grid } from '../src/core/grid';
 import type { GridPos, PanelKind, Rotation } from '../src/core/types';
 import {
+  RESERVED_TOKENS,
   ROAD_TOKENS,
   SCENERY_TOKENS,
   StageMapError,
@@ -417,6 +418,76 @@ describe('defineStage: palette の検証', () => {
     const fn = () => defineStage({ ...base, palette: ['end'] as unknown as ['straight'] });
     expect(fn).toThrow(StageMapError);
     expect(fn).toThrow(/つかえません/);
+  });
+});
+
+describe('defineStage: difficulty の範囲検証', () => {
+  const base = {
+    id: 't',
+    name: 't',
+    world: 'w3',
+    encounterDogId: 'd',
+    map: ['★ ─ ◎'],
+  };
+
+  it('未指定は undefined のまま(検証しない)', () => {
+    const stage = defineStage(base);
+    expect(stage.difficulty).toBeUndefined();
+  });
+
+  it('1と5(範囲の両端)は許容される', () => {
+    expect(defineStage({ ...base, difficulty: 1 }).difficulty).toBe(1);
+    expect(defineStage({ ...base, difficulty: 5 }).difficulty).toBe(5);
+  });
+
+  it('0(範囲外・下)は StageMapError', () => {
+    const fn = () => defineStage({ ...base, difficulty: 0 });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/1〜5 の せいすう/);
+  });
+
+  it('6(範囲外・上)は StageMapError', () => {
+    const fn = () => defineStage({ ...base, difficulty: 6 });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/1〜5 の せいすう/);
+  });
+
+  it('2.5(整数でない)は StageMapError', () => {
+    const fn = () => defineStage({ ...base, difficulty: 2.5 });
+    expect(fn).toThrow(StageMapError);
+    expect(fn).toThrow(/1〜5 の せいすう/);
+  });
+});
+
+// M12 で障害物トークンなどを足すとき、既存の特殊トークン(RESERVED_TOKENS)や道/添景トークンと
+// うっかり同じ文字を割り当てるのを防ぐための安全網。
+describe('トークンの名前空間が重複しない(M12 以降の新トークン追加の安全網)', () => {
+  it('RESERVED_TOKENS・ROAD_TOKENS・SCENERY_TOKENS のキーが互いに重複しない', () => {
+    const roadKeys = Object.keys(ROAD_TOKENS);
+    const sceneryKeys = Object.keys(SCENERY_TOKENS);
+    const groups: Array<{ label: string; keys: readonly string[] }> = [
+      { label: 'RESERVED_TOKENS', keys: RESERVED_TOKENS },
+      { label: 'ROAD_TOKENS', keys: roadKeys },
+      { label: 'SCENERY_TOKENS', keys: sceneryKeys },
+    ];
+    for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        const overlap = groups[i]!.keys.filter((k) => groups[j]!.keys.includes(k));
+        expect(overlap, `${groups[i]!.label} と ${groups[j]!.label} の重複`).toEqual([]);
+      }
+    }
+  });
+
+  it('全トークンが空白を含まない1文字以上の文字列', () => {
+    const allTokens = [
+      ...RESERVED_TOKENS,
+      ...Object.keys(ROAD_TOKENS),
+      ...Object.keys(SCENERY_TOKENS),
+    ];
+    for (const token of allTokens) {
+      expect(token.length, `トークン「${token}」の長さ`).toBeGreaterThan(0);
+      expect(/\s/.test(token), `トークン「${token}」に空白を含まない`).toBe(false);
+    }
   });
 });
 

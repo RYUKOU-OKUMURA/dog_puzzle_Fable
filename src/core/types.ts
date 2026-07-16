@@ -13,7 +13,13 @@ export type Dir = 'N' | 'E' | 'S' | 'W';
 export type PanelKind = 'straight' | 'corner' | 'tee' | 'end' | 'bridge';
 
 /** プレイヤーが配置できるパネル種(パレットに並ぶ順)。stage/ の palette 検証からも参照 */
-export const PLAYER_PANEL_KINDS: readonly PanelKind[] = ['straight', 'corner', 'tee'];
+export const PLAYER_PANEL_KINDS = [
+  'straight',
+  'corner',
+  'tee',
+] as const satisfies readonly PanelKind[];
+/** プレイヤーが配置できるパネル種(リテラル型)。UI側の Record 完全性チェックに使う */
+export type PlayerPanelKind = (typeof PLAYER_PANEL_KINDS)[number];
 
 export type Rotation = 0 | 90 | 180 | 270;
 

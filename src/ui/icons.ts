@@ -1,3 +1,4 @@
+import type { PlayerPanelKind } from '../core/types';
 import type { ProfileIconId } from '../save/profiles';
 
 const ROAD = '#f7efdf';
@@ -13,7 +14,7 @@ function frame(inner: string): string {
 }
 
 /** パレットに表示する道パネルのアイコン */
-export const PANEL_ICONS: Record<string, string> = {
+export const PANEL_ICONS: Record<PlayerPanelKind, string> = {
   straight: frame(`<rect x="14" y="1" width="12" height="38" fill="${ROAD}"/>`),
   corner: frame(
     `<rect x="14" y="1" width="12" height="25" fill="${ROAD}"/>` +
@@ -25,7 +26,7 @@ export const PANEL_ICONS: Record<string, string> = {
   ),
 };
 
-export const PANEL_LABELS: Record<string, string> = {
+export const PANEL_LABELS: Record<PlayerPanelKind, string> = {
   straight: 'まっすぐ',
   corner: 'まがりかど',
   tee: 'Tじろ',

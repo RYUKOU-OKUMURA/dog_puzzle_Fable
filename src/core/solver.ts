@@ -1,5 +1,12 @@
 import { Grid } from './grid';
-import { connectionsOf, DIR_OFFSET, OPPOSITE, PLAYER_PANEL_KINDS, exitsFrom } from './panel';
+import {
+  DIR_OFFSET,
+  OPPOSITE,
+  PLAYER_PANEL_KINDS,
+  connectionsOf,
+  distinctRotationsOf,
+  exitsFrom,
+} from './panel';
 import { findPath } from './path';
 import type { Dir, GridPos, PanelKind, Rotation, StageDef } from './types';
 import { posKey } from './types';
@@ -37,17 +44,17 @@ export const SOLVER_NODE_BUDGET = 200_000;
 export type SolveOutcome =
   { status: 'solved'; placements: SolverPlacement[] } | { status: 'none' } | { status: 'budget' };
 
-/** stage.palette を尊重した [種別, 回転] 候補 */
+/** プレイヤーが配置できる種別かどうかの判定用(palette に end/bridge が混じっても無視する) */
+const PLAYABLE_KINDS = new Set<PanelKind>(PLAYER_PANEL_KINDS as readonly PanelKind[]);
+
+/** stage.palette を尊重した [種別, 回転] 候補。回転は distinctRotationsOf で重複を除く */
 export function panelOptionsFor(stage: StageDef): Array<[PanelKind, Rotation]> {
   const kinds = stage.palette ?? PLAYER_PANEL_KINDS;
   const options: Array<[PanelKind, Rotation]> = [];
   for (const kind of kinds) {
-    if (kind === 'straight') {
-      options.push(['straight', 0], ['straight', 90]);
-    } else if (kind === 'corner') {
-      options.push(['corner', 0], ['corner', 90], ['corner', 180], ['corner', 270]);
-    } else if (kind === 'tee') {
-      options.push(['tee', 0], ['tee', 90], ['tee', 180], ['tee', 270]);
+    if (!PLAYABLE_KINDS.has(kind)) continue;
+    for (const rotation of distinctRotationsOf(kind)) {
+      options.push([kind, rotation]);
     }
   }
   return options;
@@ -61,19 +68,27 @@ function visitKey(pos: GridPos, enteredFrom: Dir | null, kind: PanelKind): strin
 }
 
 /**
- * 到達可能性の緩和チェック(枝刈り用)。空きスロットを「全方位に接続する」とみなし、
- * 置かれたパネル/固定道は実際の接続で、from からゴールまで到達できるか BFS する。
+ * 到達可能性の緩和チェック(枝刈り用・おやつ対応)。空きスロットを「全方位に接続する」とみなし、
+ * 置かれたパネル/固定道は実際の接続で、from から到達できるマス集合を BFS で求める。
+ * その集合が (a) ゴールを含み、かつ (b) まだ取っていないおやつを全て含むかを確認する。
  *
  * 接続を過大評価するので:
- * - 到達不能 ⟹ 空きを最大限活用してもゴールへ行けない ⟹ 解なし ⟹ 枝刈り安全(健全)
- * - 到達可能 ⟹ 本当に解があるとは限らない(過大評価)→ 探索続行
+ * - 到達不能(false) ⟹ 空きを最大限活用してもゴール到達 or 全おやつ回収ができない ⟹ 解なし ⟹ 枝刈り安全(健全)
+ * - 到達可能(true) ⟹ 本当に解があるとは限らない(過大評価)→ 探索続行
  * つまりこのチェックは「解を1つも見逃さない」=既存ステージの結果を変えない(M10)。
+ * おやつのないステージ(treatBit が空)では従来の canReachGoal と同じ意味になる。
  */
-function canReachGoal(grid: Grid, from: GridPos): boolean {
+export function canFinishRelaxed(
+  grid: Grid,
+  from: GridPos,
+  mask: number,
+  treatBit: Map<string, number>,
+  allTreats: number,
+): boolean {
   const goalKey = posKey(grid.stage.goal.pos);
-  const startKey = posKey(from);
-  if (startKey === goalKey) return true;
-  const seen = new Set<string>([startKey]);
+  const fromKey = posKey(from);
+  if (fromKey === goalKey && mask === allTreats) return true;
+  const seen = new Set<string>([fromKey]);
   const queue: GridPos[] = [from];
   while (queue.length > 0) {
     const cur = queue.shift()!;
@@ -88,12 +103,15 @@ function canReachGoal(grid: Grid, from: GridPos): boolean {
       const nbExits = relaxedExits(grid, nb);
       if (nbExits === null) continue; // 芝生/添景は通行不可
       if (nbExits !== 'open' && !nbExits.includes(OPPOSITE[dir])) continue;
-      if (key === goalKey) return true;
       seen.add(key);
       queue.push(nb);
     }
   }
-  return false;
+  if (!seen.has(goalKey)) return false;
+  for (const [treatKey, bit] of treatBit) {
+    if ((mask & bit) === 0 && !seen.has(treatKey)) return false;
+  }
+  return true;
 }
 
 /**
@@ -118,15 +136,39 @@ function relaxedExits(grid: Grid, pos: GridPos): readonly Dir[] | 'open' | null 
 export function solveGrid(grid: Grid, nodeBudget = SOLVER_NODE_BUDGET): SolveOutcome {
   if (findPath(grid).complete) return { status: 'solved', placements: [] };
 
-  // 空きスロットを全部道とみなしてもゴールへ届かない盤面は、探索せずに解なし(M10 枝刈り)
-  if (!canReachGoal(grid, grid.stage.start.pos)) return { status: 'none' };
+  // findPath(core/path)と同じ規約でおやつをビット化する(重複座標は1ビット化、
+  // スタートマスのおやつは startMask に含める)
+  const treats = grid.stage.treats ?? [];
+  const treatBit = new Map<string, number>();
+  for (const t of treats) {
+    const key = posKey(t);
+    if (!treatBit.has(key)) treatBit.set(key, 1 << treatBit.size);
+  }
+  const allTreats = (1 << treatBit.size) - 1;
+  const startMask = treatBit.get(posKey(grid.stage.start.pos)) ?? 0;
+  const treatCtx: TreatContext = { treatBit, allTreats };
+
+  // 空きスロットを全部道とみなしてもゴール+全おやつへ届かない盤面は、探索せずに解なし(M10 枝刈り)
+  if (!canFinishRelaxed(grid, grid.stage.start.pos, startMask, treatBit, allTreats)) {
+    return { status: 'none' };
+  }
 
   const options = panelOptionsFor(grid.stage);
   const visited = new Set<string>();
   const placed: SolverPlacement[] = [];
   const counter = { nodes: 0, budget: nodeBudget, hitBudget: false };
 
-  const found = solveFrom(grid, grid.stage.start.pos, null, visited, options, placed, counter);
+  const found = solveFrom(
+    grid,
+    grid.stage.start.pos,
+    null,
+    startMask,
+    visited,
+    options,
+    placed,
+    counter,
+    treatCtx,
+  );
   // 探索中の仮置きを戻す(呼び出し元の盤面を汚さない)。成功時は placed に解が残る
   for (const p of placed) {
     grid.remove(p.pos);
@@ -236,14 +278,22 @@ interface SolveCounter {
   hitBudget: boolean;
 }
 
+/** solveFrom に渡すおやつ文脈。canFinishRelaxed とマスク伝播で共有する */
+interface TreatContext {
+  treatBit: Map<string, number>;
+  allTreats: number;
+}
+
 function solveFrom(
   grid: Grid,
   current: GridPos,
   enteredFrom: Dir | null,
+  mask: number,
   visited: Set<string>,
   options: Array<[PanelKind, Rotation]>,
   placed: SolverPlacement[],
   counter: SolveCounter,
+  treatCtx: TreatContext,
 ): boolean {
   counter.nodes += 1;
   if (counter.nodes > counter.budget) {
@@ -260,24 +310,51 @@ function solveFrom(
   if (visited.has(vk)) return false;
   visited.add(vk);
   try {
-    // ここからの配置でゴールへ届かない(緩和到達判定)なら、これ以上探さない(M10 枝刈り)
-    if (!canReachGoal(grid, current)) return false;
+    // ここからの配置でゴール+全おやつへ届かない(緩和到達判定)なら、これ以上探さない(M10 枝刈り)
+    if (!canFinishRelaxed(grid, current, mask, treatCtx.treatBit, treatCtx.allTreats)) return false;
 
     const exits = exitsFrom(panel.kind, panel.rotation, enteredFrom);
     for (const dir of exits) {
       const offset = DIR_OFFSET[dir];
       const next: GridPos = { x: current.x + offset.x, z: current.z + offset.z };
       if (!grid.inBounds(next)) continue;
+      const nextMask = mask | (treatCtx.treatBit.get(posKey(next)) ?? 0);
       const nextPanel = grid.panelAt(next);
       if (nextPanel && grid.connectionsAt(next)?.includes(OPPOSITE[dir])) {
-        if (solveFrom(grid, next, OPPOSITE[dir], visited, options, placed, counter)) return true;
+        if (
+          solveFrom(
+            grid,
+            next,
+            OPPOSITE[dir],
+            nextMask,
+            visited,
+            options,
+            placed,
+            counter,
+            treatCtx,
+          )
+        ) {
+          return true;
+        }
       } else if (grid.isSlot(next) && !grid.panelAt(next)) {
         for (const [kind, rot] of options) {
           grid.place(next, kind, rot);
           const conns = grid.connectionsAt(next)!;
           if (conns.includes(OPPOSITE[dir])) {
             placed.push({ pos: next, kind, rotation: rot });
-            if (solveFrom(grid, next, OPPOSITE[dir], visited, options, placed, counter)) {
+            if (
+              solveFrom(
+                grid,
+                next,
+                OPPOSITE[dir],
+                nextMask,
+                visited,
+                options,
+                placed,
+                counter,
+                treatCtx,
+              )
+            ) {
               return true;
             }
             placed.pop();

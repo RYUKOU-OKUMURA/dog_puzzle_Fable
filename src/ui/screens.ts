@@ -1,4 +1,5 @@
 import type { DogInfo } from '../stage/dogs';
+import { dogInfoLinesHtml } from './dogInfo';
 
 /** ユーザー入力由来の文字列をHTMLに埋め込むときのエスケープ(名前はひらがな限定だが念のため) */
 function escapeText(s: string): string {
@@ -83,10 +84,7 @@ export class Screens {
       `<img class="photo" src="${photo}" alt="きねんしゃしん" />` +
       `<div class="dog-note">` +
       `<div><b>${dog.nameHtml}</b> と ともだちに なったよ!</div>` +
-      `<div>🌏 うまれたくに: ${dog.originHtml}</div>` +
-      `<div>💗 せいかく: ${dog.personality}</div>` +
-      `<div>📏 おおきさ: ${dog.size}</div>` +
-      `<div>💡 ${dog.trivia}</div>` +
+      dogInfoLinesHtml(dog) +
       `</div>`;
 
     const registerButton = document.createElement('button');
@@ -135,8 +133,7 @@ export class Screens {
         `おさんぽずかん <b>${collected}/${total} しゅるい</b>`;
     }
 
-    card.innerHTML =
-      `<h2>${title}</h2>` + `<div class="dog-note" style="text-align:center">${note}</div>`;
+    card.innerHTML = `<h2>${title}</h2>` + `<div class="dog-note centered">${note}</div>`;
 
     // コンプリート時は短いハート演出(2秒以内・画面を覆い続けない)
     if (extras?.zukanComplete || extras?.worldFinale) {

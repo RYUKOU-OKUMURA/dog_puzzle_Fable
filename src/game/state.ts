@@ -7,6 +7,7 @@ import type { SceneContext } from '../scene/renderer';
 import { cellToScreen } from '../scene/input';
 import { gridToWorld } from '../scene/coords';
 import { createDog, type DogModel } from '../scene/shiba';
+import { disposeObject } from '../scene/dispose';
 import {
   countCollected,
   deleteSave,
@@ -27,6 +28,7 @@ import {
   addProfile,
   createProfile,
   findProfile,
+  MAX_PROFILES,
   migrateFromV1,
   nextProfileId,
   removeProfile,
@@ -191,6 +193,8 @@ export class Game {
   /** あたらしいプロフィールをつくり、その子で遊び始める */
   private createProfile(name: string, iconId: ProfileIconId): void {
     const index = loadProfileIndex();
+    // UIとの結合が切れても addProfile の throw が DOM ハンドラまで漏れないように事前ガード
+    if (index.profiles.length >= MAX_PROFILES) return;
     const id = nextProfileId(index.profiles.map((p) => p.id));
     const profile = createProfile({
       id,
@@ -295,6 +299,8 @@ export class Game {
   private removeFriend(): void {
     if (this.friend) {
       this.deps.sceneContext.scene.remove(this.friend.group);
+      // createDog はジオメトリ/マテリアルを毎回新規生成するため、外すだけでは GPU 上に残る
+      disposeObject(this.friend.group);
       this.friend = null;
     }
   }
@@ -420,6 +426,7 @@ export class Game {
 
   /** パズル中の「もどる」→ ステージ選択へ(配置は保存されないので途中退出でも安心) */
   onExitPuzzle(): void {
+    if (this.phase !== 'puzzle') return;
     this.resetHintTracking();
     this.showStageSelect(this.currentWorldId ?? WORLDS[0]!.id);
   }
@@ -486,6 +493,11 @@ export class Game {
       // 古い town への光解除は dispose 後でも無害。新しい runtime には触れない
       town.setHintSlot(null);
       this.hintPlaying = false;
+      // 中断時も操作可否を自己復元する(呼び出し元の後始末に依存させない)
+      if (this.phase === 'puzzle' && this.runtime?.puzzle === puzzle) {
+        puzzle.enabled = true;
+        this.armIdleTimer();
+      }
     };
 
     const from = stage.start.pos;

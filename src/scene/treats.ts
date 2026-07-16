@@ -3,10 +3,14 @@ import type { GridPos, StageDef } from '../core/types';
 import { posKey } from '../core/types';
 import { gridToWorld } from './coords';
 import { disposeObject } from './dispose';
-import type { Animator } from '../game/tween';
 
 const TREAT_COLOR = 0xfff4e0; // クリーム(骨)。犬モデルのむね色と同系
 const TREAT_FLOAT_Y = 0.22; // 道の上にふわっと浮かす
+
+/** 演出の時間進行に必要な最小限(game/tween の Animator が構造的に満たす)。scene → game の依存を作らないための部分型 */
+export interface TweenRunner {
+  run(durationSec: number, onUpdate: (t: number) => void): Promise<void>;
+}
 
 /**
  * 盤面のおやつ(骨)の3D表示。何をいつ消すかは game/ が指示し、scene/ は描画と演出だけ持つ。
@@ -39,7 +43,7 @@ export class TreatsView {
   }
 
   /** 指定マスのおやつを「ぱくっ」と食べて消す(既に無ければ何もしない) */
-  eatAt(pos: GridPos, animator: Animator): Promise<void> {
+  eatAt(pos: GridPos, animator: TweenRunner): Promise<void> {
     const mesh = this.get(pos);
     if (!mesh) return Promise.resolve();
     this.meshes.delete(posKey(pos));
@@ -59,7 +63,7 @@ export class TreatsView {
   }
 
   /** おやつ残り失敗時: 残ったおやつをやわらかくぷるぷるさせる(1回かぎり・短時間) */
-  wiggle(animator: Animator): Promise<void> {
+  wiggle(animator: TweenRunner): Promise<void> {
     const targets = [...this.meshes.values()];
     if (targets.length === 0) return Promise.resolve();
     return animator
@@ -108,7 +112,6 @@ function buildTreat(): THREE.Group {
     }
   }
 
-  group.userData.materials = [mat];
   group.traverse((child) => {
     if (child instanceof THREE.Mesh) child.castShadow = true;
   });

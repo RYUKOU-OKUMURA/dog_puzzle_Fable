@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
 import { findPath } from '../src/core/path';
-import { findHintTarget, findSolution, isStageSolvable, solveGrid } from '../src/core/solver';
+import {
+  findHintTarget,
+  findSolution,
+  isStageSolvable,
+  panelOptionsFor,
+  solveGrid,
+} from '../src/core/solver';
+import type { PanelKind, Rotation } from '../src/core/types';
 import { expectRouteIsMinimal, makeTestStage } from './helpers';
 
 describe('core/solver', () => {
@@ -63,6 +70,39 @@ describe('core/solver', () => {
     const outcome = solveGrid(grid, 1);
     expect(outcome.status).toBe('budget');
     expect(findSolution(grid, 1)).toBeNull();
+  });
+});
+
+describe('panelOptionsFor', () => {
+  // distinctRotationsOf 移行後も、従来の if/else 連鎖と同じ候補リスト(種別→回転の昇順)になることを固定する。
+  it('palette 未指定は PLAYER_PANEL_KINDS の全種×重複しない回転(従来と同じ候補)', () => {
+    const stage = makeTestStage();
+    const expected: Array<[PanelKind, Rotation]> = [
+      ['straight', 0],
+      ['straight', 90],
+      ['corner', 0],
+      ['corner', 90],
+      ['corner', 180],
+      ['corner', 270],
+      ['tee', 0],
+      ['tee', 90],
+      ['tee', 180],
+      ['tee', 270],
+    ];
+    expect(panelOptionsFor(stage)).toEqual(expected);
+  });
+
+  it('palette 指定時は指定種のみ(従来と同じ候補)', () => {
+    const stage = { ...makeTestStage(), palette: ['straight', 'corner'] as PanelKind[] };
+    const expected: Array<[PanelKind, Rotation]> = [
+      ['straight', 0],
+      ['straight', 90],
+      ['corner', 0],
+      ['corner', 90],
+      ['corner', 180],
+      ['corner', 270],
+    ];
+    expect(panelOptionsFor(stage)).toEqual(expected);
   });
 });
 

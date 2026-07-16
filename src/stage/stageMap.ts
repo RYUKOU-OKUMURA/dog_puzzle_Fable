@@ -57,6 +57,17 @@ const GRASS_TOKEN = '.';
 const SLOT_TOKEN = '□';
 const START_TOKEN = '★';
 const GOAL_TOKEN = '◎';
+/**
+ * 特殊トークン(芝生・スロット・スタート・ゴール)。ROAD_TOKENS・SCENERY_TOKENS とは別の
+ * 名前空間で管理しているため、新トークン追加時に重複しないかをここでまとめて検証できるようにする
+ * (M12 で障害物トークンなどを足すときの安全網。tests/stageMap.test.ts で交叉検証)。
+ */
+export const RESERVED_TOKENS: readonly string[] = [
+  GRASS_TOKEN,
+  SLOT_TOKEN,
+  START_TOKEN,
+  GOAL_TOKEN,
+];
 // M10: 盤面大型化に対応。iPad縦持ち(820px幅)で12×12でもセル約65pxを保てる上限。
 // 14以上はパネルが小さくなりすぎるため採らない(plan.md M10 仕様)。
 const MAX_SIZE = 12;
@@ -264,6 +275,10 @@ export function defineStage(input: StageMapInput): StageDef {
   const treats = input.treats ? parseTreats(input.treats, parsed) : undefined;
   // palette は空・重複・プレイヤー配置不可種を弾く。未指定は全種扱い(undefined のまま)
   const palette = input.palette !== undefined ? parsePalette(input.palette) : undefined;
+  // 難度はステージ選択画面(M4)の🦴表示に直結するため、範囲外の値をここで弾く
+  if (input.difficulty !== undefined) {
+    validateDifficulty(input.difficulty);
+  }
   return {
     id: input.id,
     name: input.name,
@@ -280,6 +295,19 @@ export function defineStage(input: StageMapInput): StageDef {
     palette,
     theme: input.theme,
   };
+}
+
+/** 難度(🦴)の範囲。ステージ選択画面(M4)の表示・plan.md の難度表と一致させる */
+const MIN_DIFFICULTY = 1;
+const MAX_DIFFICULTY = 5;
+
+/** 難度の検証。1〜5 の整数以外は StageMapError */
+function validateDifficulty(difficulty: number): void {
+  if (!Number.isInteger(difficulty) || difficulty < MIN_DIFFICULTY || difficulty > MAX_DIFFICULTY) {
+    fail(
+      `difficulty は ${MIN_DIFFICULTY}〜${MAX_DIFFICULTY} の せいすうで かいてください(いまは ${difficulty})`,
+    );
+  }
 }
 
 /** palette の検証。空・重複・PLAYER_PANEL_KINDS 外は StageMapError */

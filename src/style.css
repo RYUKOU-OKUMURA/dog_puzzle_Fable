@@ -187,6 +187,10 @@ ruby rt {
   width: 100%;
 }
 
+.card .dog-note.centered {
+  text-align: center;
+}
+
 /* ---------- HUD ---------- */
 
 #hud-top {

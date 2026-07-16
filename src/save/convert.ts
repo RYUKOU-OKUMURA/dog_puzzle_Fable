@@ -2,6 +2,10 @@
  * セーブデータの純粋な変換・構築(localStorage に触れない)。
  * profiles.ts(純粋層)と storage.ts(I/O層)の両方から使われるので、
  * 依存が一方向(convert ← profiles, convert ← storage)になるようにここに置く。
+ *
+ * 運用ルール: フィールド追加は optional + normalizeSaveData にデフォルトを足すだけでよい
+ * (後方互換)。既存フィールドの意味・形を変える破壊的変更のみ version を上げ、
+ * 旧形式からの移行関数+移行テストを必ず書く(AGENTS.md 7章)。
  */
 
 export interface ZukanEntry {
@@ -31,27 +35,54 @@ export function ensureShiba(save: SaveData): void {
   }
 }
 
+function isValidZukanEntry(entry: unknown): entry is ZukanEntry {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+  const e = entry as Record<string, unknown>;
+  return typeof e.metAt === 'string' && (e.photo === null || typeof e.photo === 'string');
+}
+
+function isValidStageEntry(entry: unknown): entry is { cleared: boolean } {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+  const e = entry as Record<string, unknown>;
+  return typeof e.cleared === 'boolean';
+}
+
+/**
+ * unknown を安全な SaveData へ正規化する(純粋。localStorage に触れない)。
+ * 型の壊れたエントリ(文字列・配列・フィールド型違いなど)は黙って捨て、
+ * 有効なものだけを積む。normalizeProfile と対称の「壊れデータへの耐性」方針。
+ */
+export function normalizeSaveData(input: unknown): SaveData {
+  const save = emptySave();
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return save;
+  const obj = input as Record<string, unknown>;
+
+  if (obj.zukan && typeof obj.zukan === 'object' && !Array.isArray(obj.zukan)) {
+    for (const [id, entry] of Object.entries(obj.zukan as Record<string, unknown>)) {
+      if (isValidZukanEntry(entry)) save.zukan[id] = { metAt: entry.metAt, photo: entry.photo };
+    }
+  }
+
+  if (obj.stages && typeof obj.stages === 'object' && !Array.isArray(obj.stages)) {
+    for (const [id, entry] of Object.entries(obj.stages as Record<string, unknown>)) {
+      if (isValidStageEntry(entry)) save.stages[id] = { cleared: entry.cleared };
+    }
+  }
+
+  return save;
+}
+
 /**
  * v1 セーブ(raw JSON)を v2 セーブに変換する(純粋)。
  * 不正・version不一致・パース失敗・無し → null。
- * zukan/stages はそのまま引き継ぎ、柴犬エントリを保証する。
+ * zukan/stages は normalizeSaveData で検証してから引き継ぎ、柴犬エントリを保証する。
  */
 export function parseV1Save(raw: string | null): SaveData | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<{
-      version: number;
-      zukan: unknown;
-      stages: unknown;
-    }>;
+    const parsed = JSON.parse(raw) as { version?: unknown };
     if (!parsed || parsed.version !== 1) return null;
-    const save = emptySave();
-    if (parsed.zukan && typeof parsed.zukan === 'object') {
-      save.zukan = parsed.zukan as Record<string, ZukanEntry>;
-    }
-    if (parsed.stages && typeof parsed.stages === 'object') {
-      save.stages = parsed.stages as Record<string, { cleared: boolean }>;
-    }
+    const save = normalizeSaveData(parsed);
     ensureShiba(save);
     return save;
   } catch {

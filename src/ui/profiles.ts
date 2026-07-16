@@ -1,5 +1,5 @@
 import type { Profile, ProfileIconId } from '../save/profiles';
-import { validateName } from '../save/profiles';
+import { MAX_PROFILES, validateName } from '../save/profiles';
 import { PROFILE_ICONS, iconEmoji } from './icons';
 
 export interface ProfilesViewCallbacks {
@@ -89,7 +89,7 @@ export class ProfilesView {
     for (const p of profiles) {
       grid.append(this.selectTile(p, p.id === activeId));
     }
-    const emptyCount = Math.max(0, 4 - profiles.length);
+    const emptyCount = Math.max(0, MAX_PROFILES - profiles.length);
     for (let i = 0; i < emptyCount; i++) {
       grid.append(this.createTile());
     }

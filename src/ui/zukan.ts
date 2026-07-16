@@ -1,5 +1,6 @@
 import type { SaveData } from '../save/storage';
 import { DOG_ORDER, DOGS } from '../stage/dogs';
+import { dogInfoLinesHtml } from './dogInfo';
 
 /** おさんぽずかん(集めた犬種の思い出アルバム) */
 export class ZukanView {
@@ -43,10 +44,7 @@ export class ZukanView {
           photo +
           `<div class="dog-info">` +
           `<h3>${dog.nameHtml}</h3>` +
-          `<div>🌏 うまれたくに: ${dog.originHtml}</div>` +
-          `<div>💗 せいかく: ${dog.personality}</div>` +
-          `<div>📏 おおきさ: ${dog.size}</div>` +
-          `<div class="dog-trivia">💡 ${dog.trivia}</div>` +
+          dogInfoLinesHtml(dog, { triviaClass: 'dog-trivia' }) +
           `</div>`;
       } else {
         card.innerHTML =

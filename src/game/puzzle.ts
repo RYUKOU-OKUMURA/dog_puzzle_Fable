@@ -65,7 +65,10 @@ export class PuzzleController {
     hud.hidePanelPopup();
   }
 
+  /** 現状はポップアップ経由でしか呼ばれない(enabled 中のみ開ける)が、
+   *  入力経路が増えても安全なように呼び出し側に加えてここでもガードする */
   rotatePanel(pos: GridPos): void {
+    if (!this.enabled) return;
     const { grid, boardView } = this.deps;
     if (grid.rotate(pos)) {
       this.noteAction();
@@ -74,6 +77,7 @@ export class PuzzleController {
   }
 
   removePanel(pos: GridPos): void {
+    if (!this.enabled) return;
     const { grid, boardView, hud } = this.deps;
     if (grid.remove(pos)) {
       this.noteAction();

@@ -1,12 +1,10 @@
 import { expect } from 'vitest';
 import { Grid } from '../src/core/grid';
-import { connectionsOf, DIR_OFFSET, OPPOSITE, exitsFrom } from '../src/core/panel';
+import { DIR_OFFSET, OPPOSITE, exitsFrom } from '../src/core/panel';
 import { findPath } from '../src/core/path';
-import { panelOptionsFor, solveGrid } from '../src/core/solver';
+import { canFinishRelaxed, panelOptionsFor, solveGrid } from '../src/core/solver';
 import type { Dir, GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
-import { posKey } from '../src/core/types';
-
-const ALL_DIRS_TREAT: readonly Dir[] = ['N', 'E', 'S', 'W'];
+import { PLAYER_PANEL_KINDS, posKey } from '../src/core/types';
 
 /**
  * テスト用 4×4 ミニステージ。
@@ -161,7 +159,7 @@ export function expectIntendedSolutionSolves(
   placements: Array<{ pos: GridPos; kind: PanelKind; rotation: Rotation }>,
 ): void {
   const grid = new Grid(stage);
-  const allowed = new Set(stage.palette ?? ['straight', 'corner', 'tee', 'bridge']);
+  const allowed = new Set<string>(stage.palette ?? [...PLAYER_PANEL_KINDS, 'bridge']);
   for (const p of placements) {
     expect(allowed.has(p.kind), `${p.kind} は palette 内`).toBe(true);
     expect(grid.place(p.pos, p.kind, p.rotation), `${posKey(p.pos)} に配置できる`).toBe(true);
@@ -184,47 +182,10 @@ export function expectIntendedSolutionSolves(
 // マスクを含めないため、この再訪を許さず「おやつマスへのスパー往復で分岐点を別maskで再訪して
 // ルートの一部をスキップする」ショートカットを見逃す。ここでは findPath の挙動を忠実に模倣し、
 // 意図解より少ない配置で complete になる経路(再訪ショートカット)がないことを網羅的に検証する。
+//
+// 到達可能性の緩和チェック(枝刈り用)は core/solver の canFinishRelaxed をそのまま使う
+// (もとはテスト側だけの実装だったが、solver.ts の探索枝刈りへ移植した。ロジックの二重管理を避ける)。
 // ----------------------------------------------------------------------------
-
-/**
- * 到達可能性の緩和チェック(treat-aware 探索の枝刈り用)。空きスロットを全方位 open とみなし、
- * from から到達できるマス集合を求め、(a) ゴールが含まれるか、(b) まだ取っていないおやつが
- * すべて到達範囲にあるか、を確認。過大評価なので「ダメと言えば確実にダメ」=健全な枝刈り。
- */
-function canFinishRelaxedTreat(
-  grid: Grid,
-  from: GridPos,
-  mask: number,
-  treatBit: Map<string, number>,
-  allTreats: number,
-  goalKey: string,
-): boolean {
-  if (posKey(from) === goalKey && mask === allTreats) return true;
-  const seen = new Set<string>([posKey(from)]);
-  const q: GridPos[] = [from];
-  while (q.length > 0) {
-    const c = q.shift()!;
-    for (const d of ALL_DIRS_TREAT) {
-      const o = DIR_OFFSET[d];
-      const nb = { x: c.x + o.x, z: c.z + o.z };
-      if (!grid.inBounds(nb)) continue;
-      const k = posKey(nb);
-      if (seen.has(k)) continue;
-      const p = grid.panelAt(nb);
-      // 空きスロットは open(全方位接続)、非スロットの空きは通行不可、パネルありは実際の接続
-      const ex = p ? connectionsOf(p.kind, p.rotation) : grid.isSlot(nb) ? 'open' : null;
-      if (ex === null) continue;
-      if (ex !== 'open' && !ex.includes(OPPOSITE[d])) continue;
-      seen.add(k);
-      q.push(nb);
-    }
-  }
-  if (!seen.has(goalKey)) return false;
-  for (const [tk, bit] of treatBit) {
-    if ((mask & bit) === 0 && !seen.has(tk)) return false;
-  }
-  return true;
-}
 
 /**
  * おやつマスクを状態に含めた探索(再訪を許す)。maxPlacements 枚以下で complete になるかを
@@ -266,7 +227,7 @@ export function canSolveTreatAware(
     if (posKey(cur) === goalKey && mask === allTreats) return true;
     const panel = grid.panelAt(cur);
     if (!panel) return false;
-    if (!canFinishRelaxedTreat(grid, cur, mask, treatBit, allTreats, goalKey)) return false;
+    if (!canFinishRelaxed(grid, cur, mask, treatBit, allTreats)) return false;
     const k = visitKeyTreat(cur, ef, panel.kind, mask);
     if (vis.has(k)) return false;
     vis.add(k);

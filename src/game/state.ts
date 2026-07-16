@@ -261,7 +261,7 @@ export class Game {
       hud: this.deps.hud,
       canvas: this.deps.canvas,
     });
-    // 盤面サイズに合わせてカメラ表示範囲と影を合わせる(M10。8×8は現状の見た目不变)
+    // 盤面サイズに合わせてカメラ表示範囲と影を合わせる(M10。8×8は現状の見た目不変)
     this.deps.sceneContext.fitToStage(stage.size.w, stage.size.h);
     this.deps.hud.updateStageName(stage.name);
     // palette 未指定は全種。ステージ切替時は選択も解除(非表示種に選択が残らないように)
@@ -757,6 +757,7 @@ export class Game {
   /**
    * 開発限定: 全ステージクリア + 図鑑全犬種登録のダミーセーブを現プロフィールへ書き込む。
    * 写真は null(プレースホルダ)。ワールド解放確認や M11 通し確認用。
+   * 現プロフィールの実セーブを復元不可で上書きする(開発用・本番プレイでは使わない)。
    */
   devUnlockAll(): boolean {
     if (!this.profileId) return false;

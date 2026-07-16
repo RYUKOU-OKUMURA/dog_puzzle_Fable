@@ -4,7 +4,11 @@ import { findPath } from '../src/core/path';
 import { isStageSolvable } from '../src/core/solver';
 import type { GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
 import { posKey } from '../src/core/types';
-import { expectIntendedSolutionSolves, expectRouteIsMinimal } from './helpers';
+import {
+  expectIntendedSolutionSolves,
+  expectNoRevisitShortcut,
+  expectRouteIsMinimal,
+} from './helpers';
 import { w5s1 } from '../src/stage/w5s1';
 import { w5s2 } from '../src/stage/w5s2';
 import { w5s3 } from '../src/stage/w5s3';
@@ -33,9 +37,7 @@ function expectBridgeRequired(
   for (const p of placements) {
     expect(grid.place(p.pos, p.kind, p.rotation)).toBe(true);
   }
-  expect(findPath(grid).complete, `${stage.id}: 橋なしでは complete にならない`).toBe(
-    false,
-  );
+  expect(findPath(grid).complete, `${stage.id}: 橋なしでは complete にならない`).toBe(false);
 }
 
 /** 上下左右のいずれにも道/スロット/★/◎が隣接しない = 孤立スロット */
@@ -253,6 +255,10 @@ describe('w5-s3「ちゅうかがい」', () => {
     expectRouteIsMinimal(w5s3, solution);
   });
 
+  it('(g2) 意図解(17枚)より短い再訪ショートカット別解がない(マスク込み網羅探索)', () => {
+    expectNoRevisitShortcut(w5s3, 17);
+  });
+
   it('(h) 孤立スロットがない', () => {
     expectNoIsolatedSlots(w5s3);
   });
@@ -260,6 +266,8 @@ describe('w5-s3「ちゅうかがい」', () => {
 
 // ============================================================================
 // w5-s4「フィナーレの おまつり」(🦴5 / 12×12・最大盤面・最難関)
+// 再訪ショートカット: おやつは正解ルート上の次数2鎖、ダミー/橋EW飾りはおやつへ届かない行き止まり。
+// マスク込み網羅は予算超過のため構造的保証 + expectRouteIsMinimal で運用(w5-s2 同趣旨)。
 // ============================================================================
 describe('w5-s4「フィナーレの おまつり」', () => {
   const solution = [

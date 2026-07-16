@@ -8,7 +8,11 @@ import { w4s1 } from '../src/stage/w4s1';
 import { w4s2 } from '../src/stage/w4s2';
 import { w4s3 } from '../src/stage/w4s3';
 import { w4s4 } from '../src/stage/w4s4';
-import { expectIntendedSolutionSolves, expectRouteIsMinimal } from './helpers';
+import {
+  expectIntendedSolutionSolves,
+  expectNoRevisitShortcut,
+  expectRouteIsMinimal,
+} from './helpers';
 
 /**
  * W4 ステージ4種の検証(M11: 11×11 大型化・難化)。
@@ -173,6 +177,11 @@ describe('w4-s2「アメリカの まち 2」', () => {
     expectRouteIsMinimal(w4s2, solution);
   });
 
+  it('(g2) 意図解(11枚)より短い再訪ショートカット別解がない(マスク込み網羅探索)', () => {
+    // 実測 ~5秒・約46万ノード。既定 timeout(5秒)ぎりぎりなので余裕を持たせる
+    expectNoRevisitShortcut(w4s2, 11);
+  }, 30_000);
+
   it('(h) 孤立スロットがない', () => {
     expect(findIsolatedSlots(w4s2)).toEqual([]);
   });
@@ -235,6 +244,8 @@ describe('w4-s3「メキシコの まち 1」', () => {
 
 // ============================================================================
 // w4-s4「メキシコの まち 2」(🦴5 / 橋2+おやつ3・総仕上げ)
+// 再訪ショートカット: おやつは正解ルート上の次数2鎖、ダミーは橋EW飾りの行き止まりでおやつへ
+// 届かない。マスク込み網羅は予算超過のため構造的保証 + expectRouteIsMinimal で運用(w5-s2 同趣旨)。
 // ============================================================================
 describe('w4-s4「メキシコの まち 2」', () => {
   const solution = [

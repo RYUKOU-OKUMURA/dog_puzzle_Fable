@@ -4,7 +4,11 @@ import { findPath } from '../src/core/path';
 import { isStageSolvable } from '../src/core/solver';
 import type { GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
 import { posKey } from '../src/core/types';
-import { expectIntendedSolutionSolves, expectNoRevisitShortcut, expectNoShorterSolution } from './helpers';
+import {
+  expectIntendedSolutionSolves,
+  expectNoRevisitShortcut,
+  expectNoShorterSolution,
+} from './helpers';
 import { w2s1 } from '../src/stage/w2s1';
 import { w2s2 } from '../src/stage/w2s2';
 import { w2s3 } from '../src/stage/w2s3';
@@ -109,6 +113,10 @@ describe('w2-s1「イギリスの まち 1」', () => {
     expectNoShorterSolution(w2s1, 8);
   });
 
+  it('(f2) 意図解(8枚)より短い再訪ショートカット別解がない(マスク込み網羅探索)', () => {
+    expectNoRevisitShortcut(w2s1, 8);
+  });
+
   it('(g) 孤立スロットがない', () => {
     expectNoIsolatedSlots(w2s1);
   });
@@ -159,6 +167,10 @@ describe('w2-s2「イギリスの まち 2」', () => {
 
   it('(f) 意図解(9枚)より短い別解がない', () => {
     expectNoShorterSolution(w2s2, 9);
+  });
+
+  it('(f2) 意図解(9枚)より短い再訪ショートカット別解がない(マスク込み網羅探索)', () => {
+    expectNoRevisitShortcut(w2s2, 9);
   });
 
   it('(g) 孤立スロットがない', () => {

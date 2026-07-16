@@ -2,7 +2,7 @@ import { expect } from 'vitest';
 import { Grid } from '../src/core/grid';
 import { connectionsOf, DIR_OFFSET, OPPOSITE, exitsFrom } from '../src/core/panel';
 import { findPath } from '../src/core/path';
-import { isStageSolvable, panelOptionsFor } from '../src/core/solver';
+import { panelOptionsFor, solveGrid } from '../src/core/solver';
 import type { Dir, GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
 import { posKey } from '../src/core/types';
 
@@ -126,13 +126,16 @@ export function expectNoShorterSolution(stage: StageDef, intendedPlacementCount:
  * はずで、その盤は「解ける」ことになる → 「r* は必須」に反する。
  * よって「全ルートセルが必須」⟹「意図解より短い解は存在しない」。期待値はこれと同値。
  *
- * 計算量は placements.length 回の isStageSolvable(各・到達可能性枝刈りで高速)。橋・おやつ・
- * palette 制限のいずれでも isStageSolvable が正しく判定するため、全ギミックで健全。
+ * solveGrid を直接呼び、`status === 'none'`(解なし)を明示検証する。`'budget'`(予算超過)は
+ * 「解なし」と混同せず fail にする(偽陽性防止。expectNoRevisitShortcut と同じ方針)。
+ * 計算量は placements.length 回の solveGrid(各・到達可能性枝刈りで高速)。橋・おやつ・
+ * palette 制限のいずれでも正しく判定するため、全ギミックで健全。
  * 呼び出し側は意図解の「全ルートスロット」を渡すこと(expectIntendedSolutionSolves と併用想定)。
  */
 export function expectRouteIsMinimal(
   stage: StageDef,
   placements: ReadonlyArray<{ pos: GridPos }>,
+  opts: { nodeBudget?: number } = {},
 ): void {
   expect(placements.length, `${stage.id}: 意図解の枚数 > 0`).toBeGreaterThan(0);
   for (const p of placements) {
@@ -140,10 +143,15 @@ export function expectRouteIsMinimal(
       ...stage,
       slots: stage.slots.filter((s) => !(s.x === p.pos.x && s.z === p.pos.z)),
     };
+    const outcome = solveGrid(new Grid(withoutSlot), opts.nodeBudget);
     expect(
-      isStageSolvable(withoutSlot),
+      outcome.status,
+      `${stage.id}: ルートスロット(${p.pos.x},${p.pos.z}) 除去時の探索が予算超過(判定不能)`,
+    ).not.toBe('budget');
+    expect(
+      outcome.status,
       `${stage.id}: ルートスロット(${p.pos.x},${p.pos.z}) は必須(外すと解けなくなるべき)`,
-    ).toBe(false);
+    ).toBe('none');
   }
 }
 
@@ -246,7 +254,13 @@ export function canSolveTreatAware(
     return `${posKey(pos)}:${axis}:${mask}`;
   }
 
-  function dfs(cur: GridPos, ef: Dir | null, mask: number, placed: number, vis: Set<string>): boolean {
+  function dfs(
+    cur: GridPos,
+    ef: Dir | null,
+    mask: number,
+    placed: number,
+    vis: Set<string>,
+  ): boolean {
     nodes++;
     if (nodes > nodeBudget) return false;
     if (posKey(cur) === goalKey && mask === allTreats) return true;
@@ -310,8 +324,7 @@ export function expectNoRevisitShortcut(
     r.budget,
     `${stage.id}: 再訪ショートカット検証が予算内で完遂できない(盤面が大きすぎるか分岐が多すぎる)`,
   ).toBe(false);
-  expect(
-    r.ok,
-    `${stage.id}: ${intendedPlacements - 1}枚以下の再訪ショートカット別解がない`,
-  ).toBe(false);
+  expect(r.ok, `${stage.id}: ${intendedPlacements - 1}枚以下の再訪ショートカット別解がない`).toBe(
+    false,
+  );
 }

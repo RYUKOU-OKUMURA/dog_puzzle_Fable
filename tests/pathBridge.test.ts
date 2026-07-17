@@ -30,7 +30,7 @@ function bridgeCrossStage(treats?: StageDef['treats']): StageDef {
     ],
     scenery: [],
     encounterDogId: 'chihuahua',
-      bgmTrackId: 'japan-01',
+    bgmTrackId: 'japan-01',
     treats,
   };
 }

@@ -65,8 +65,9 @@
 
 - 効果音・BGMとも **Web Audio API の合成のみ**(音声ファイル・howler.js 等の依存追加なし)
 - 効果音3点 + おと ON/OFF: [plan-phase3.md](./plan-phase3.md) M13
-- BGM(全ステージ共通1曲 + おさんぽアレンジ): [plan-phase3.md](./plan-phase3.md) M14。ワールド別曲は未承認・見送り
-- AudioContext は1つだけ。効果音と BGM で master / compressor / `soundEnabled` を共有する
+- BGM(現在は全ステージ共通1曲 + おさんぽアレンジ): [plan-phase3.md](./plan-phase3.md) M14。曲データをプレイヤーから分離し、各ステージの `bgmTrackId` で登録曲を選ぶ
+- AudioContext は1つだけ。効果音と BGM で master / compressor / `soundEnabled` を共有し、BGM の残響だけは停止可能な BGM bus 配下へ分離する
+- 初回ユーザージェスチャで `AudioContext` が `running` になったことを確認し、失敗時は次の操作で再試行する
 
 ## 4. 開発・品質
 

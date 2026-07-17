@@ -24,8 +24,24 @@ let selection: BgmSelection | null = null;
 let loopTimer: ReturnType<typeof setTimeout> | null = null;
 /** 終了した音源を残さず、停止対象だけを追跡する。 */
 const activeSources = new Set<AudioScheduledSourceNode>();
-let bgmBus: GainNode | null = null;
+interface BgmOutput {
+  bus: GainNode;
+  delay: DelayNode;
+  feedback: GainNode;
+  lowpass: BiquadFilterNode;
+  wet: GainNode;
+}
+
+interface DetachedPlayback {
+  output: BgmOutput | null;
+  sources: AudioScheduledSourceNode[];
+}
+
+let bgmOutput: BgmOutput | null = null;
 let generation = 0;
+
+const STOP_FADE_SECONDS = 0.08;
+const SWITCH_FADE_SECONDS = 0.06;
 
 function trackSource(source: AudioScheduledSourceNode): void {
   activeSources.add(source);
@@ -39,9 +55,13 @@ function clearLoopTimer(): void {
   }
 }
 
-function stopSources(): void {
+function takeActiveSources(): AudioScheduledSourceNode[] {
   const sources = [...activeSources];
   activeSources.clear();
+  return sources;
+}
+
+function stopSources(sources: readonly AudioScheduledSourceNode[]): void {
   for (const source of sources) {
     try {
       source.stop();
@@ -51,13 +71,67 @@ function stopSources(): void {
   }
 }
 
-function ensureBgmBus(graph: AudioGraph): GainNode {
-  if (!bgmBus || bgmBus.context !== graph.audio) {
-    bgmBus = graph.audio.createGain();
-    bgmBus.gain.value = 1;
-    bgmBus.connect(graph.master);
+/** BGMの残響も同じbusへ戻し、停止時にdry/wetをまとめて絞れるようにする。 */
+function createBgmOutput(graph: AudioGraph): BgmOutput {
+  const bus = graph.audio.createGain();
+  bus.gain.value = 1;
+  bus.connect(graph.master);
+
+  const delay = graph.audio.createDelay(1);
+  delay.delayTime.value = 0.27;
+  const feedback = graph.audio.createGain();
+  feedback.gain.value = 0.3;
+  const lowpass = graph.audio.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = 1500;
+  const wet = graph.audio.createGain();
+  wet.gain.value = 0.22;
+
+  delay.connect(lowpass).connect(feedback).connect(delay);
+  delay.connect(wet).connect(bus);
+  return { bus, delay, feedback, lowpass, wet };
+}
+
+function ensureBgmOutput(graph: AudioGraph): BgmOutput {
+  if (!bgmOutput || bgmOutput.bus.context !== graph.audio) {
+    bgmOutput = createBgmOutput(graph);
   }
-  return bgmBus;
+  return bgmOutput;
+}
+
+function disposeBgmOutput(output: BgmOutput | null): void {
+  if (!output) return;
+  for (const node of [output.delay, output.lowpass, output.feedback, output.wet, output.bus]) {
+    try {
+      node.disconnect();
+    } catch {
+      /* 破棄済みは無視 */
+    }
+  }
+}
+
+function detachPlayback(fadeSeconds: number): DetachedPlayback {
+  clearLoopTimer();
+  const output = bgmOutput;
+  bgmOutput = null;
+  const sources = takeActiveSources();
+
+  if (output && fadeSeconds > 0) {
+    const now = output.bus.context.currentTime;
+    try {
+      output.bus.gain.cancelScheduledValues(now);
+      output.bus.gain.setValueAtTime(output.bus.gain.value, now);
+      output.bus.gain.linearRampToValueAtTime(0.0001, now + fadeSeconds);
+    } catch {
+      /* コンテキスト破棄後などは無視 */
+    }
+  }
+  return { output, sources };
+}
+
+function finishDetached(playback: DetachedPlayback): void {
+  stopSources(playback.sources);
+  disposeBgmOutput(playback.output);
 }
 
 function queueLoop(
@@ -69,8 +143,14 @@ function queueLoop(
 ): void {
   if (currentGeneration !== generation || selection === null || !isSoundEnabled()) return;
 
-  const destination = ensureBgmBus(graph);
-  track.scheduleLoop(graph, destination, startAt, arrangement, trackSource);
+  const output = ensureBgmOutput(graph);
+  track.scheduleLoop(
+    { ...graph, delaySend: output.delay },
+    output.bus,
+    startAt,
+    arrangement,
+    trackSource,
+  );
 
   const loopEnd = startAt + track.loopBeats * (60 / track.bpm);
   const delayMs = (loopEnd - graph.audio.currentTime - 0.4) * 1000;
@@ -89,30 +169,13 @@ function queueLoop(
 }
 
 /** いま鳴っている音源を止め、短いフェードでプチッを抑える。 */
-function hardStop(fadeSeconds = 0.08): void {
-  clearLoopTimer();
-  const stopGeneration = ++generation;
-  const bus = bgmBus;
-  if (bus && fadeSeconds > 0) {
-    const now = bus.context.currentTime;
-    try {
-      bus.gain.cancelScheduledValues(now);
-      bus.gain.setValueAtTime(bus.gain.value, now);
-      bus.gain.linearRampToValueAtTime(0.0001, now + fadeSeconds);
-    } catch {
-      /* コンテキスト破棄後などは無視 */
-    }
-    globalThis.setTimeout(
-      () => {
-        if (stopGeneration !== generation) return;
-        stopSources();
-        if (bgmBus) bgmBus.gain.value = 1;
-      },
-      fadeSeconds * 1000 + 20,
-    );
+function hardStop(fadeSeconds = STOP_FADE_SECONDS): void {
+  ++generation;
+  const playback = detachPlayback(fadeSeconds);
+  if (playback.output && fadeSeconds > 0) {
+    globalThis.setTimeout(() => finishDetached(playback), fadeSeconds * 1000 + 20);
   } else {
-    stopSources();
-    if (bgmBus) bgmBus.gain.value = 1;
+    finishDetached(playback);
   }
 }
 
@@ -122,17 +185,33 @@ function startFromNow(track: BgmTrack, arrangement: BgmArrangement): void {
     return;
   }
   const currentGeneration = ++generation;
-  clearLoopTimer();
-  stopSources();
-  void readyAudioGraph().then((graph) => {
-    if (!graph || currentGeneration !== generation || !isSoundEnabled() || selection === null) return;
-    const bus = ensureBgmBus(graph);
-    const now = graph.audio.currentTime;
-    bus.gain.cancelScheduledValues(now);
-    bus.gain.setValueAtTime(0.0001, now);
-    bus.gain.linearRampToValueAtTime(1, now + 0.06);
-    queueLoop(graph, track, now + 0.1, arrangement, currentGeneration);
-  });
+  const previous = detachPlayback(SWITCH_FADE_SECONDS);
+  const begin = (): void => {
+    if (currentGeneration !== generation || !isSoundEnabled() || selection === null) return;
+    void readyAudioGraph().then((graph) => {
+      if (!graph || currentGeneration !== generation || !isSoundEnabled() || selection === null)
+        return;
+      const output = ensureBgmOutput(graph);
+      const now = graph.audio.currentTime;
+      output.bus.gain.cancelScheduledValues(now);
+      output.bus.gain.setValueAtTime(0.0001, now);
+      output.bus.gain.linearRampToValueAtTime(1, now + SWITCH_FADE_SECONDS);
+      queueLoop(graph, track, now + 0.1, arrangement, currentGeneration);
+    });
+  };
+
+  if (previous.output || previous.sources.length > 0) {
+    globalThis.setTimeout(
+      () => {
+        // 後続の停止や切替が入っても、切り離した旧音源の後始末だけは必ず行う。
+        finishDetached(previous);
+        begin();
+      },
+      SWITCH_FADE_SECONDS * 1000 + 20,
+    );
+  } else {
+    begin();
+  }
 }
 
 /** 現在の選曲。未登録IDは既定曲へ正規化して返す。 */

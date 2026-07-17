@@ -224,7 +224,7 @@ function longCorridorStage(treats: GridPos[]): StageDef {
     ],
     scenery: [],
     encounterDogId: 'corgi',
-      bgmTrackId: 'japan-01',
+    bgmTrackId: 'japan-01',
     treats,
     palette: ['straight', 'corner'],
   };

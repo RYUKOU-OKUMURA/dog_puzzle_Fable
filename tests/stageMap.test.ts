@@ -282,7 +282,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['1 0'],
       });
@@ -297,7 +297,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['9,9'],
       });
@@ -311,7 +311,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['0,1'], // (0,1)は芝生
       });
@@ -325,7 +325,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         map: ['★ ─ ◎', '木 □ .'],
         treats: ['0,1'], // (0,1)は木
       });
@@ -352,7 +352,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         map: ['★ □ □ □ □ ◎'],
         treats: ['1,0', '2,0', '3,0', '4,0', '0,0', '5,0'],
       });
@@ -366,7 +366,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['1,0', '1,0'],
       });
@@ -381,7 +381,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w4',
         encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+        bgmTrackId: 'japan-01',
         // 橋は4方向が盤内、かつ上下の│も盤外を向かないよう余白つき
         map: ['. . . . .', '. . │ . .', '★ ─ 橋 ─ ◎', '. . │ . .', '. . . . .'],
         treats: ['2,2'],
@@ -447,7 +447,7 @@ describe('defineStage: palette の検証', () => {
     name: 't',
     world: 'w3',
     encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+    bgmTrackId: 'japan-01',
     map: ['★ ─ ◎'],
   };
 
@@ -486,7 +486,7 @@ describe('defineStage: difficulty の範囲検証', () => {
     name: 't',
     world: 'w3',
     encounterDogId: 'd',
-      bgmTrackId: 'japan-01',
+    bgmTrackId: 'japan-01',
     map: ['★ ─ ◎'],
   };
 

@@ -110,13 +110,7 @@ export const JAPAN_BGM_TRACK = {
         kick(audio, destination, barAt, trackSource);
         kick(audio, destination, barAt + 2 * secondsPerBeat, trackSource);
         for (let index = 0; index < 4; index++) {
-          hat(
-            audio,
-            destination,
-            noiseBuf,
-            barAt + (index + 0.5) * secondsPerBeat,
-            trackSource,
-          );
+          hat(audio, destination, noiseBuf, barAt + (index + 0.5) * secondsPerBeat, trackSource);
         }
       }
     });

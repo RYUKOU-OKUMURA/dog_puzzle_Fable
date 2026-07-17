@@ -47,9 +47,8 @@ interface StageVerification {
  * 実際に読んで手で台帳化したもの(2026-07 時点)。
  */
 const COVERAGE: Record<string, StageVerification> = {
-  // W1: おやつなし。w1-s1 のみ M10/M11 以前の移行ステージで、デコイのない単純経路のため
-  // 機械的な最小性テストが無い(既知のギャップ。tests/stageMap.test.ts の構造照合のみ)。
-  'w1-s1': { minimality: 'unverified-legacy', revisitShortcut: 'not-applicable' },
+  // W1: おやつなし。w1-s1 は expectNoShorterSolution(意図解3枚)で最小性を保証。
+  'w1-s1': { minimality: 'no-shorter-solution', revisitShortcut: 'not-applicable' },
   'w1-s2': { minimality: 'no-shorter-solution', revisitShortcut: 'not-applicable' },
   'w1-s3': { minimality: 'no-shorter-solution', revisitShortcut: 'not-applicable' },
   'w1-s4': { minimality: 'no-shorter-solution', revisitShortcut: 'not-applicable' },

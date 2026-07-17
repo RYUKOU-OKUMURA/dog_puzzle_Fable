@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { isStageSolvable } from '../src/core/solver';
 import type { GridPos, StageDef } from '../src/core/types';
 import { posKey } from '../src/core/types';
+import { w1s1 } from '../src/stage/w1s1';
 import { w1s2 } from '../src/stage/w1s2';
 import { w1s3 } from '../src/stage/w1s3';
 import { w1s4 } from '../src/stage/w1s4';
 import { expectIntendedSolutionSolves, expectNoShorterSolution } from './helpers';
 
 /**
- * W1 新ステージ3種(M11 大型化・難化版)の検証。
+ * W1 ステージ(チュートリアル w1-s1 + M11 大型化・難化版)の検証。
  * 各ステージで (a) スロット数 (b) 難度 (c) 意図解での解可能性
  * (d) 総当たりソルバで解あり (f) 意図解より短い別解なし
  * (g) 孤立スロットなし を確認する。
@@ -17,6 +18,24 @@ import { expectIntendedSolutionSolves, expectNoShorterSolution } from './helpers
  * 「正解ルートから分岐する行き止まり・どこにも合流しない」構造。
  * これにより検証が高速かつ健全になる。
  */
+
+// ============================================================================
+// w1-s1「にほんの まち 1」(🦴1 / チュートリアル / 8×8 / 意図解3枚)
+// ============================================================================
+describe('w1-s1「にほんの まち 1」', () => {
+  it('(c) 意図解(3枚)で解ける', () => {
+    // ★(1,1) → 固定│ → □(1,3)は使わず □(1,4)└ → 固定── → □(4,4)─ → 固定─ → □(6,4)┐ → 固定│ → ◎(6,6)
+    expectIntendedSolutionSolves(w1s1, [
+      { pos: { x: 1, z: 4 }, kind: 'corner', rotation: 0 }, // └ 北・東
+      { pos: { x: 4, z: 4 }, kind: 'straight', rotation: 90 }, // ─ 東西
+      { pos: { x: 6, z: 4 }, kind: 'corner', rotation: 180 }, // ┐ 南・西
+    ]);
+  });
+
+  it('(f) 意図解(3枚)より短い別解がない', () => {
+    expectNoShorterSolution(w1s1, 3);
+  });
+});
 
 // ----------------------------------------------------------------------------
 // 孤立スロット判定(スニペット)。隣接4マスのいずれかが

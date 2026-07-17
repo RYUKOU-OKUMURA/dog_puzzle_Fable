@@ -1,5 +1,6 @@
 import './style.css';
 import { unlockAudio } from './audio/sfx';
+import { getBgmMode } from './audio/bgm';
 import { Game } from './game/state';
 import { Animator } from './game/tween';
 import { cellToScreen } from './scene/input';
@@ -51,6 +52,7 @@ const game = new Game({
 // (pointerdown だけだと一部環境で resume が偶に失敗するため touchend/click も見る)
 const unlockOnFirstGesture = (): void => {
   unlockAudio();
+  game.onAudioUnlocked();
   window.removeEventListener('pointerdown', unlockOnFirstGesture);
   window.removeEventListener('touchend', unlockOnFirstGesture);
   window.removeEventListener('click', unlockOnFirstGesture);
@@ -68,6 +70,7 @@ if (import.meta.env.DEV) {
       save: () => game.activeSave,
       profileId: () => game.activeProfileId,
       phase: () => game.phase,
+      bgmMode: () => getBgmMode(),
       runtime: () => game.activeRuntime,
       grid: () => game.activeRuntime?.grid,
       stage: () => game.activeRuntime?.stage,

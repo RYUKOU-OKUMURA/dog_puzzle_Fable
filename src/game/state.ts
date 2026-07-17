@@ -3,7 +3,15 @@ import { findPath } from '../core/path';
 import { findHintTarget } from '../core/solver';
 import type { GridPos, PanelKind, StageDef } from '../core/types';
 import { posKey } from '../core/types';
-import { playFanfare, playPaku, playPon, setSoundEnabled, unlockAudio } from '../audio/sfx';
+import { getBgmMode, setBgmMode, stopBgm } from '../audio/bgm';
+import {
+  isSoundEnabled,
+  playFanfare,
+  playPaku,
+  playPon,
+  setSoundEnabled,
+  unlockAudio,
+} from '../audio/sfx';
 import type { SceneContext } from '../scene/renderer';
 import { cellToScreen } from '../scene/input';
 import { gridToWorld } from '../scene/coords';
@@ -176,6 +184,7 @@ export class Game {
     this.phase = 'select';
     this.removeFriend();
     this.standbyPuzzle();
+    this.syncBgm();
     this.deps.hud.setVisible(false);
     this.resetShiba();
     this.clearOverlays();
@@ -273,6 +282,36 @@ export class Game {
   /** セーブのおと設定を audio モジュールへ反映(プロフィール切替時) */
   private syncSoundFromSave(): void {
     setSoundEnabled(this.save.soundEnabled);
+    this.syncBgm();
+  }
+
+  /**
+   * 場面に応じた BGM モードを適用する。
+   * encounter/clear は停止。walk は成功アレンジ中だけ 'walk' を維持し、それ以外は通常。
+   */
+  private syncBgm(): void {
+    if (!isSoundEnabled()) {
+      stopBgm();
+      return;
+    }
+    if (this.phase === 'encounter' || this.phase === 'clear') {
+      setBgmMode('off');
+      return;
+    }
+    // 成功お散歩中だけアレンジを維持(失敗お散歩は通常のまま)
+    if (this.phase === 'walk' && getBgmMode() === 'walk') {
+      setBgmMode('walk');
+      return;
+    }
+    setBgmMode('normal');
+  }
+
+  /**
+   * 初回ジェスチャで AudioContext が起きたあと、場面どおりに BGM を再開する。
+   * (起動直後は resume 前で無音になり得るため、main から呼ぶ)
+   */
+  onAudioUnlocked(): void {
+    this.syncBgm();
   }
 
   /** タイトルの「おと」トグル */
@@ -282,8 +321,12 @@ export class Game {
     setSoundEnabled(this.save.soundEnabled);
     // プロフィール選択済みならセーブへ。未選択でもメモリ上のフラグは切り替わる
     if (this.profileId) persistSave(this.profileId, this.save);
-    // ON にした瞬間に1音鳴らして、端末の消音/制限に気づけるようにする
-    if (this.save.soundEnabled) playPon();
+    if (!this.save.soundEnabled) {
+      stopBgm();
+    } else {
+      // ON にした瞬間に1音鳴らして、端末の消音/制限に気づけるようにする
+      playPon();
+    }
     this.toTitle();
   }
 
@@ -344,6 +387,7 @@ export class Game {
     this.phase = 'title';
     this.removeFriend();
     this.standbyPuzzle();
+    this.syncBgm();
     this.deps.hud.setVisible(false);
     this.clearOverlays();
     this.deps.profiles.hide();
@@ -365,6 +409,7 @@ export class Game {
     this.phase = 'worldSelect';
     this.removeFriend();
     this.standbyPuzzle();
+    this.syncBgm();
     this.deps.hud.setVisible(false);
     this.resetShiba();
     this.clearOverlays();
@@ -401,6 +446,7 @@ export class Game {
     this.phase = 'stageSelect';
     this.removeFriend();
     this.standbyPuzzle();
+    this.syncBgm();
     this.deps.hud.setVisible(false);
     this.resetShiba();
     this.clearOverlays();
@@ -440,6 +486,7 @@ export class Game {
     this.runtime.reset();
     this.clearOverlays();
     this.resetShiba();
+    this.syncBgm();
     this.resetHintTracking();
     this.runtime.puzzle.onUserAction = () => this.onPuzzleAction();
     this.runtime.puzzle.onPanelPlaced = () => playPon();
@@ -659,6 +706,8 @@ export class Game {
 
     if (result.complete) {
       this.resetHintTracking();
+      // クリア成功ルート: おさんぽアレンジを重ねる
+      setBgmMode('walk');
       // クリア: 全おやつを通るルートを歩く。通ったマスのおやつを「ぱくっ」と食べる
       const remaining = treats.remainingKeys();
       const eatIfTreat = (cell: GridPos): Promise<void> | void => {
@@ -685,6 +734,9 @@ export class Game {
       return;
     }
 
+    // 失敗お散歩: 通常ループのまま(アレンジなし・止めない。怖い無音にしない)
+    setBgmMode('normal');
+
     if (!result.goalReachable) {
       // (2) 道未完成: 行けるところまで歩いて、首をかしげて、おうちに戻る
       if (result.route.length > 1) {
@@ -707,6 +759,7 @@ export class Game {
 
     this.walkFailCount += 1;
     this.phase = 'puzzle';
+    this.syncBgm();
     puzzle.enabled = true;
     hud.setVisible(true);
     if (this.walkFailCount >= HINT_FAIL_THRESHOLD) {
@@ -723,7 +776,8 @@ export class Game {
     const stage = this.runtime!.stage;
     const dogInfo = DOGS[stage.encounterDogId]!;
 
-    // クリア成功の演出開始(ファンファーレ)
+    // 出会い・クリア演出中は BGM を止め、既存ファンファーレのみ鳴らす
+    setBgmMode('off');
     playFanfare();
 
     // ゴールの「道と反対側」に新しい友だちが現れる

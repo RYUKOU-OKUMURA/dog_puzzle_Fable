@@ -42,7 +42,7 @@ src/
   stage/  ステージ定義と犬種データ
   ui/     DOMオーバーレイ(画面・HUD・図鑑)
   save/   localStorage 保存
-  audio/  効果音(Web Audio API 合成。他層に依存しない)
+  audio/  効果音・BGM(Web Audio API 合成。他層に依存しない)
 tests/    core のユニットテスト
 ```
 

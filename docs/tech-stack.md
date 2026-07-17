@@ -63,8 +63,10 @@
 
 ### 3.7 音(フェーズ3)
 
-- 効果音は **Web Audio API の合成のみ**(音声ファイル・howler.js 等の依存追加なし)。詳細は [plan-phase3.md](./plan-phase3.md) M13
-- BGMは引き続き見送り(未承認)
+- 効果音・BGMとも **Web Audio API の合成のみ**(音声ファイル・howler.js 等の依存追加なし)
+- 効果音3点 + おと ON/OFF: [plan-phase3.md](./plan-phase3.md) M13
+- BGM(全ステージ共通1曲 + おさんぽアレンジ): [plan-phase3.md](./plan-phase3.md) M14。ワールド別曲は未承認・見送り
+- AudioContext は1つだけ。効果音と BGM で master / compressor / `soundEnabled` を共有する
 
 ## 4. 開発・品質
 

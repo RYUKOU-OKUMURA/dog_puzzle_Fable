@@ -6,10 +6,36 @@ import {
   findSolution,
   isStageSolvable,
   panelOptionsFor,
+  SOLVER_NODE_BUDGET,
   solveGrid,
 } from '../src/core/solver';
-import type { PanelKind, Rotation } from '../src/core/types';
+import type { GridPos, PanelKind, Rotation, StageDef } from '../src/core/types';
 import { expectRouteIsMinimal, makeTestStage } from './helpers';
+
+/** おやつ4〜5個検証用の一本道(palette を straight のみにして探索を小さく保つ) */
+function treatCorridorStage(treatCount: 4 | 5): StageDef {
+  const slots: GridPos[] = [
+    { x: 1, z: 1 },
+    { x: 2, z: 1 },
+    { x: 3, z: 1 },
+    { x: 4, z: 1 },
+    { x: 5, z: 1 },
+  ];
+  const treats = slots.slice(0, treatCount);
+  return {
+    id: `treat-corridor-${treatCount}`,
+    name: 'おやつかいどう',
+    size: { w: 7, h: 3 },
+    start: { pos: { x: 0, z: 1 }, rotation: 90 },
+    goal: { pos: { x: 6, z: 1 }, rotation: 270 },
+    fixedRoads: [],
+    slots,
+    scenery: [],
+    encounterDogId: 'corgi',
+    treats,
+    palette: ['straight'],
+  };
+}
 
 describe('core/solver', () => {
   it('一意解に近い盤面で正解ルート上の空きスロットを返す', () => {
@@ -71,6 +97,38 @@ describe('core/solver', () => {
     expect(outcome.status).toBe('budget');
     expect(findSolution(grid, 1)).toBeNull();
   });
+
+  it.each([4, 5] as const)(
+    'おやつ%d個の一本道を既定予算(200_000ノード)内で解き、ヒントも出せる',
+    (treatCount) => {
+      const stage = treatCorridorStage(treatCount);
+      const empty = new Grid(stage);
+      const outcome = solveGrid(empty, SOLVER_NODE_BUDGET);
+      expect(outcome.status).toBe('solved');
+      if (outcome.status !== 'solved') return;
+
+      const solved = new Grid(stage);
+      for (const p of outcome.placements) {
+        expect(solved.place(p.pos, p.kind, p.rotation)).toBe(true);
+      }
+      const path = findPath(solved);
+      expect(path.complete).toBe(true);
+      expect(path.route).toHaveLength(7);
+      for (const t of stage.treats ?? []) {
+        expect(path.route).toContainEqual(t);
+      }
+
+      // 1マス空けた盤でヒントが place を返す(ソルバがおやつ付き盤でも動くこと)
+      const partial = new Grid(stage);
+      for (const p of outcome.placements.slice(0, -1)) {
+        expect(partial.place(p.pos, p.kind, p.rotation)).toBe(true);
+      }
+      const hint = findHintTarget(partial);
+      expect(hint).not.toBeNull();
+      expect(hint!.kind).toBe('place');
+      expect(hint!.pos).toEqual(outcome.placements.at(-1)!.pos);
+    },
+  );
 });
 
 describe('panelOptionsFor', () => {

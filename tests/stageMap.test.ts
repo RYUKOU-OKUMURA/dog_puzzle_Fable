@@ -298,17 +298,29 @@ describe('defineStage: treats のパースと検証', () => {
     expect(fn).toThrow(/みちが とおれません/);
   });
 
-  it('おやつ4つは StageMapError(最大3)', () => {
+  it('おやつ5つちょうどは通る(MAX_TREATS)', () => {
+    const stage = defineStage({
+      id: 't',
+      name: 't',
+      world: 'w2',
+      encounterDogId: 'd',
+      map: ['★ □ □ □ □ ◎'],
+      treats: ['1,0', '2,0', '3,0', '4,0', '0,0'],
+    });
+    expect(stage.treats).toHaveLength(5);
+  });
+
+  it('おやつ6つは StageMapError(最大5)', () => {
     const fn = () =>
       defineStage({
         id: 't',
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
-        map: baseMap,
-        treats: ['1,0', '1,1', '0,0', '2,0'],
+        map: ['★ □ □ □ □ ◎'],
+        treats: ['1,0', '2,0', '3,0', '4,0', '0,0', '5,0'],
       });
-    expect(fn).toThrow(/3つまで/);
+    expect(fn).toThrow(/5つまで/);
   });
 
   it('同じ座標に複数のおやつは StageMapError', () => {

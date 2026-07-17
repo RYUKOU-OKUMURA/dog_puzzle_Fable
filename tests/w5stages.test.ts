@@ -128,36 +128,40 @@ describe('w5-s1「ゆきの まち」', () => {
 });
 
 // ============================================================================
-// w5-s2「あたたかい よるの まち」(🦴4 / 11×11・純粋チェーン迷路・おやつ2・橋なし・M12修正)
+// w5-s2「あたたかい よるの まち」(🦴4 / 11×11・純粋チェーン迷路・おやつ5・橋なし・M12)
 // 旧盤面は T字分岐点が3つあり再訪ショートカット(13枚別解)があった。ルートを純粋チェーン
 // (全セル次数2)に再設計し、T字分岐点をゼロにして再訪ショートカットを構造的に排除。
+// M12 で次数2鎖上におやつを5個まで増やした(意図解枚数・ルート形状は不変)。
 // ============================================================================
 describe('w5-s2「あたたかい よるの まち」', () => {
-  // 純粋チェーン(ルート上の全セルが次数2・T字分岐点ゼロ)。おやつ(4,1)(4,5)は東西に貫通する
+  // 純粋チェーン(ルート上の全セルが次数2・T字分岐点ゼロ)。おやつ5つはいずれも東西に貫通する
   // 直線マス。分岐点がないため「分岐点→おやつ→分岐点(別mask再訪)」のスパー往復ショートカットが
   // 幾何的に不可能。ダミー4((7,1)(7,3)(6,5)(1,6))は隣接ルート角の開いていない方向を向き、ルートへ繋がらない。
   const solution = [
-    { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+    { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ
     { pos: { x: 4, z: 1 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ
     { pos: { x: 5, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
     { pos: { x: 6, z: 1 }, kind: 'corner' as const, rotation: 180 as const }, // ┐ S,W
     { pos: { x: 6, z: 3 }, kind: 'corner' as const, rotation: 270 as const }, // ┘ N,W
     { pos: { x: 5, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
-    { pos: { x: 4, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
+    { pos: { x: 4, z: 3 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ
     { pos: { x: 3, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
     { pos: { x: 2, z: 3 }, kind: 'straight' as const, rotation: 90 as const },
     { pos: { x: 1, z: 3 }, kind: 'corner' as const, rotation: 90 as const }, // ┌ E,S
     { pos: { x: 1, z: 5 }, kind: 'corner' as const, rotation: 0 as const }, // └ N,E
-    { pos: { x: 2, z: 5 }, kind: 'straight' as const, rotation: 90 as const },
+    { pos: { x: 2, z: 5 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ
     { pos: { x: 4, z: 5 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ
     { pos: { x: 5, z: 5 }, kind: 'corner' as const, rotation: 180 as const }, // ┐ S,W
   ];
 
-  it('(a) 11×11、スロット18(正解14+ダミー4)、おやつ2、橋なし', () => {
+  it('(a) 11×11、スロット18(正解14+ダミー4)、おやつ5、橋なし', () => {
     expect(w5s2.size).toEqual({ w: 11, h: 11 });
     expect(w5s2.slots.length).toBe(18);
     expect(w5s2.treats).toEqual([
+      { x: 3, z: 1 },
       { x: 4, z: 1 },
+      { x: 4, z: 3 },
+      { x: 2, z: 5 },
       { x: 4, z: 5 },
     ]);
     expect(w5s2.fixedRoads.filter((r) => r.kind === 'bridge')).toHaveLength(0);
@@ -174,7 +178,7 @@ describe('w5-s2「あたたかい よるの まち」', () => {
     expect(w5s2.encounterDogId).toBe('samoyed');
   });
 
-  it('(d) 意図解で解ける(おやつ2つ全通過)', () => {
+  it('(d) 意図解で解ける(おやつ5つ全通過)', () => {
     expectIntendedSolutionSolves(w5s2, solution);
   });
 
@@ -265,14 +269,14 @@ describe('w5-s3「ちゅうかがい」', () => {
 });
 
 // ============================================================================
-// w5-s4「フィナーレの おまつり」(🦴5 / 12×12・最大盤面・最難関)
+// w5-s4「フィナーレの おまつり」(🦴5 / 12×12・最大盤面・最難関・おやつ4・M12)
 // 再訪ショートカット: おやつは正解ルート上の次数2鎖、ダミー/橋EW飾りはおやつへ届かない行き止まり。
 // マスク込み網羅は予算超過のため構造的保証 + expectRouteIsMinimal で運用(w5-s2 同趣旨)。
 // ============================================================================
 describe('w5-s4「フィナーレの おまつり」', () => {
   const solution = [
     { pos: { x: 2, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
-    { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
+    { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ(M12)
     { pos: { x: 4, z: 1 }, kind: 'corner' as const, rotation: 180 as const },
     { pos: { x: 4, z: 2 }, kind: 'straight' as const, rotation: 0 as const },
     { pos: { x: 4, z: 3 }, kind: 'corner' as const, rotation: 270 as const },
@@ -291,10 +295,15 @@ describe('w5-s4「フィナーレの おまつり」', () => {
     { pos: { x: 8, z: 10 }, kind: 'corner' as const, rotation: 180 as const },
   ];
 
-  it('(a) 12×12、スロット20(正解18+ダミー2)、おやつ3、橋2', () => {
+  it('(a) 12×12、スロット20(正解18+ダミー2)、おやつ4、橋2', () => {
     expect(w5s4.size).toEqual({ w: 12, h: 12 });
     expect(w5s4.slots.length).toBe(20);
-    expect(w5s4.treats).toHaveLength(3);
+    expect(w5s4.treats).toEqual([
+      { x: 3, z: 1 },
+      { x: 4, z: 3 },
+      { x: 5, z: 6 },
+      { x: 6, z: 10 },
+    ]);
     expect(w5s4.fixedRoads.filter((r) => r.kind === 'bridge')).toHaveLength(2);
   });
 
@@ -309,7 +318,7 @@ describe('w5-s4「フィナーレの おまつり」', () => {
     expect(w5s4.encounterDogId).toBe('dachshund');
   });
 
-  it('(d) 意図解で解ける(橋2本・おやつ3つ全通過)', () => {
+  it('(d) 意図解で解ける(橋2本・おやつ4つ全通過)', () => {
     expectIntendedSolutionSolves(w5s4, solution);
   });
 

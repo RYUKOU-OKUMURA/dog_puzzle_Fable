@@ -66,13 +66,14 @@ const COVERAGE: Record<string, StageVerification> = {
   'w3-s4': { minimality: 'route-minimal', revisitShortcut: 'not-applicable' },
 
   // W4: w4-s2 はおやつありで再訪ショートカット証明が通常テストで完遂。
-  // w4-s4 はおやつ3つで予算超過のため構造的保証(次数2鎖・橋飾りが行き止まり)で運用。
+  // w4-s4 はおやつ4つで予算超過のため構造的保証(次数2鎖・橋飾りが行き止まり)で運用。
   'w4-s1': { minimality: 'route-minimal', revisitShortcut: 'not-applicable' },
   'w4-s2': { minimality: 'route-minimal', revisitShortcut: 'revisit-shortcut' },
   'w4-s3': { minimality: 'route-minimal', revisitShortcut: 'not-applicable' },
   'w4-s4': { minimality: 'route-minimal', revisitShortcut: 'structural-comment' },
 
   // W5: w5-s1(slow)・w5-s3(通常)は網羅証明が完遂。w5-s2・w5-s4 は純粋チェーン等の構造的保証で運用。
+  // w5-s2 は M12 でおやつ5個(次数2鎖上)に拡張。再訪は引き続き構造的保証。
   'w5-s1': { minimality: 'route-minimal', revisitShortcut: 'revisit-shortcut-slow' },
   'w5-s2': { minimality: 'route-minimal', revisitShortcut: 'structural-comment' },
   'w5-s3': { minimality: 'route-minimal', revisitShortcut: 'revisit-shortcut' },

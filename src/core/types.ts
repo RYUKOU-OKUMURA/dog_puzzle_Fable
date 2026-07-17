@@ -77,8 +77,8 @@ export interface StageDef {
 /** W5 変化球の地面・雰囲気。空の色は変えず(6.1)、地面と添景で差別化する */
 export type StageTheme = 'snow' | 'night' | 'chinatown' | 'festival';
 
-/** おやつは最大3個(要件5.1)。core/path(経路判定)と stage/stageMap(パース検証)の両方から参照 */
-export const MAX_TREATS = 3;
+/** おやつは最大5個(要件5.1)。core/path(経路判定)と stage/stageMap(パース検証)の両方から参照 */
+export const MAX_TREATS = 5;
 
 export function posKey(pos: GridPos): string {
   return `${pos.x},${pos.z}`;

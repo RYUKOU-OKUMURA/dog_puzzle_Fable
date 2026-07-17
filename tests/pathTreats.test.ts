@@ -168,8 +168,8 @@ describe('findPath: どう組んでもおやつに届かない', () => {
   });
 });
 
-describe('findPath: おやつ3個(最大)の一本道', () => {
-  it('3個のおやつをすべて通る', () => {
+describe('findPath: おやつ複数個の一本道', () => {
+  it('経路外のおやつが残ると complete=false', () => {
     const grid = new Grid(
       stageWith([
         { x: 1, z: 1 },
@@ -201,6 +201,89 @@ describe('findPath: おやつ3個(最大)の一本道', () => {
   });
 });
 
+/**
+ * おやつ4〜5個(MAX_TREATS)向けの長い一本道。
+ *   ★(0,1) → □×5 → ◎(6,1)
+ */
+function longCorridorStage(treats: GridPos[]): StageDef {
+  return {
+    id: 'long-corridor',
+    name: 'ながい みち',
+    size: { w: 7, h: 3 },
+    start: { pos: { x: 0, z: 1 }, rotation: 90 },
+    goal: { pos: { x: 6, z: 1 }, rotation: 270 },
+    fixedRoads: [],
+    slots: [
+      { x: 1, z: 1 },
+      { x: 2, z: 1 },
+      { x: 3, z: 1 },
+      { x: 4, z: 1 },
+      { x: 5, z: 1 },
+    ],
+    scenery: [],
+    encounterDogId: 'corgi',
+    treats,
+    palette: ['straight', 'corner'],
+  };
+}
+
+function placeCorridor(grid: Grid): void {
+  for (let x = 1; x <= 5; x++) {
+    grid.place({ x, z: 1 }, 'straight', 90);
+  }
+}
+
+describe('findPath: おやつ4個・5個(MAX_TREATS)の一本道', () => {
+  it('4個のおやつをすべて通って complete', () => {
+    const treats = [
+      { x: 1, z: 1 },
+      { x: 2, z: 1 },
+      { x: 3, z: 1 },
+      { x: 4, z: 1 },
+    ];
+    const grid = new Grid(longCorridorStage(treats));
+    placeCorridor(grid);
+    const result = findPath(grid);
+    expect(result.complete).toBe(true);
+    for (const t of treats) {
+      expect(result.route).toContainEqual(t);
+    }
+  });
+
+  it('5個(上限ちょうど)のおやつをすべて通って complete', () => {
+    const treats = [
+      { x: 1, z: 1 },
+      { x: 2, z: 1 },
+      { x: 3, z: 1 },
+      { x: 4, z: 1 },
+      { x: 5, z: 1 },
+    ];
+    const grid = new Grid(longCorridorStage(treats));
+    placeCorridor(grid);
+    const result = findPath(grid);
+    expect(result.complete).toBe(true);
+    expect(routeKeys(result.route)).toEqual(['0,1', '1,1', '2,1', '3,1', '4,1', '5,1', '6,1']);
+  });
+
+  it('5個のうち1個が経路外なら complete=false(ゴールには届く)', () => {
+    const grid = new Grid(
+      longCorridorStage([
+        { x: 1, z: 1 },
+        { x: 2, z: 1 },
+        { x: 3, z: 1 },
+        { x: 4, z: 1 },
+        { x: 3, z: 0 }, // 経路外
+      ]),
+    );
+    // (3,0) をスロット化するためステージを拡張した定義が必要 — 経路外マスはスロット外でも treats に置ける
+    // longCorridor に (3,0) スロットが無いので、treats だけ経路外座標を指す
+    placeCorridor(grid);
+    const result = findPath(grid);
+    expect(result.complete).toBe(false);
+    expect(result.goalReachable).toBe(true);
+  });
+});
+
 describe('findPath: 同一座標のおやつ重複は無害化される', () => {
   it('同じマスに2つおやつがあっても1つ扱いで complete になる', () => {
     const grid = new Grid(
@@ -229,11 +312,8 @@ describe('findPath: おやつが最大数を超えると throw する(防御)', 
   });
 
   it('最大数ちょうどなら throw しない', () => {
-    const stage = stageWith([
-      { x: 0, z: 1 },
-      { x: 1, z: 1 },
-      { x: 2, z: 1 },
-    ]);
+    const treats = Array.from({ length: MAX_TREATS }, (_, i) => ({ x: i + 1, z: 1 }));
+    const stage = longCorridorStage(treats);
     expect(() => findPath(new Grid(stage))).not.toThrow();
   });
 });

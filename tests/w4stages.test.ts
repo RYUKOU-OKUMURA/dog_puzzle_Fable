@@ -243,7 +243,7 @@ describe('w4-s3「メキシコの まち 1」', () => {
 });
 
 // ============================================================================
-// w4-s4「メキシコの まち 2」(🦴5 / 橋2+おやつ3・総仕上げ)
+// w4-s4「メキシコの まち 2」(🦴5 / 橋2+おやつ4・総仕上げ・M12)
 // 再訪ショートカット: おやつは正解ルート上の次数2鎖、ダミーは橋EW飾りの行き止まりでおやつへ
 // 届かない。マスク込み網羅は予算超過のため構造的保証 + expectRouteIsMinimal で運用(w5-s2 同趣旨)。
 // ============================================================================
@@ -253,7 +253,7 @@ describe('w4-s4「メキシコの まち 2」', () => {
     { pos: { x: 3, z: 1 }, kind: 'straight' as const, rotation: 90 as const },
     { pos: { x: 4, z: 1 }, kind: 'straight' as const, rotation: 90 as const }, // おやつ
     { pos: { x: 5, z: 1 }, kind: 'corner' as const, rotation: 180 as const }, // ┐{S,W}
-    { pos: { x: 5, z: 2 }, kind: 'straight' as const, rotation: 0 as const },
+    { pos: { x: 5, z: 2 }, kind: 'straight' as const, rotation: 0 as const }, // おやつ(M12)
     // │(5,3) → 橋(5,4) → │(5,5)
     { pos: { x: 5, z: 6 }, kind: 'corner' as const, rotation: 0 as const }, // └{N,E}
     { pos: { x: 6, z: 6 }, kind: 'straight' as const, rotation: 90 as const },
@@ -267,11 +267,16 @@ describe('w4-s4「メキシコの まち 2」', () => {
     { pos: { x: 4, z: 10 }, kind: 'straight' as const, rotation: 90 as const },
   ];
 
-  it('(a) 11×11・スロット17(正解14+ダミー3)・橋2・おやつ3', () => {
+  it('(a) 11×11・スロット17(正解14+ダミー3)・橋2・おやつ4', () => {
     expect(w4s4.size).toEqual({ w: 11, h: 11 });
     expect(w4s4.slots.length).toBe(17);
     expect(w4s4.fixedRoads.filter((r) => r.kind === 'bridge')).toHaveLength(2);
-    expect(w4s4.treats ?? []).toHaveLength(3);
+    expect(w4s4.treats).toEqual([
+      { x: 4, z: 1 },
+      { x: 5, z: 2 },
+      { x: 7, z: 6 },
+      { x: 6, z: 10 },
+    ]);
   });
 
   it('(b) 難度5・メタ情報', () => {

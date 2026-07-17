@@ -11,6 +11,8 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let delaySend: DelayNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
+/** resume 完了待ち(多重 resume を1本にまとめる) */
+let resumeWait: Promise<void> | null = null;
 
 /** おと ON/OFF。呼び出し側に分岐を散らさず、再生関数内で参照する */
 export function setSoundEnabled(enabled: boolean): void {
@@ -26,7 +28,8 @@ export function isSoundEnabled(): boolean {
  * 再生関数からも呼ばれるが、タイトル等の最初のタップで先に呼んでおくと安全。
  */
 export function unlockAudio(): void {
-  ensureAudio();
+  const audio = ensureContext();
+  if (audio) void ensureRunning(audio);
 }
 
 function getAudioContextCtor(): AudioContextCtor | null {
@@ -35,7 +38,8 @@ function getAudioContextCtor(): AudioContextCtor | null {
   return window.AudioContext ?? w.webkitAudioContext ?? null;
 }
 
-function ensureAudio(): AudioContext | null {
+/** AudioContext と master グラフを用意する(resume はしない) */
+function ensureContext(): AudioContext | null {
   const Ctor = getAudioContextCtor();
   if (!Ctor) return null;
 
@@ -65,10 +69,29 @@ function ensureAudio(): AudioContext | null {
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
-  if (ctx.state === 'suspended') {
-    void ctx.resume();
-  }
   return ctx;
+}
+
+/**
+ * Safari/iPad では AudioContext が suspended のまま始まり、
+ * resume 完了前に schedule した音は無音になる。必ず running を待ってから鳴らす。
+ */
+function ensureRunning(audio: AudioContext): Promise<void> {
+  if (audio.state === 'running') {
+    resumeWait = null;
+    return Promise.resolve();
+  }
+  if (!resumeWait) {
+    resumeWait = audio
+      .resume()
+      .then(() => {
+        resumeWait = null;
+      })
+      .catch(() => {
+        resumeWait = null;
+      });
+  }
+  return resumeWait;
 }
 
 const SEMI: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -161,9 +184,16 @@ function withAudio(
   play: (audio: AudioContext, dest: GainNode, echo: DelayNode, buf: AudioBuffer) => void,
 ): void {
   if (!soundEnabled) return;
-  const audio = ensureAudio();
+  const audio = ensureContext();
   if (!audio || !master || !delaySend || !noiseBuf) return;
-  play(audio, master, delaySend, noiseBuf);
+  const dest = master;
+  const echo = delaySend;
+  const buf = noiseBuf;
+  // resume 完了後に schedule する(完了前の currentTime で組むと無音になるため)
+  void ensureRunning(audio).then(() => {
+    if (!soundEnabled || audio.state !== 'running') return;
+    play(audio, dest, echo, buf);
+  });
 }
 
 /** パネルをスロットに置いたとき */

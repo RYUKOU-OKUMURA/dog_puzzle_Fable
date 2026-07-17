@@ -81,16 +81,14 @@ export class Screens {
 
     screen.append(logo, sub, startButton, zukanButton, dressButton);
 
-    // おと ON/OFF(M13)。プロフィール選択後のみ(設定はプロフィール別)
-    if (profile) {
-      const soundButton = document.createElement('button');
-      soundButton.className = 'btn btn-sub sound-toggle';
-      soundButton.type = 'button';
-      soundButton.textContent = soundEnabled ? '🔊 おと ON' : '🔇 おと OFF';
-      soundButton.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
-      soundButton.addEventListener('click', onToggleSound);
-      screen.append(soundButton);
-    }
+    // おと ON/OFF(M13)。タイトルでは常に出す(プロフィール無しでも切替は可・保存は profile 選択後)
+    const soundButton = document.createElement('button');
+    soundButton.className = 'btn btn-sub sound-toggle';
+    soundButton.type = 'button';
+    soundButton.textContent = soundEnabled ? '🔊 おと ON' : '🔇 おと OFF';
+    soundButton.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
+    soundButton.addEventListener('click', onToggleSound);
+    screen.append(soundButton);
 
     this.mount(screen);
   }

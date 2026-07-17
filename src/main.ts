@@ -47,12 +47,17 @@ const game = new Game({
   canvas,
 });
 
-// iPad 自動再生制限: 最初のユーザータップで AudioContext を起こす
-const unlockOnFirstTap = (): void => {
+// iPad 自動再生制限: 最初のユーザージェスチャで AudioContext を起こす
+// (pointerdown だけだと一部環境で resume が偶に失敗するため touchend/click も見る)
+const unlockOnFirstGesture = (): void => {
   unlockAudio();
-  window.removeEventListener('pointerdown', unlockOnFirstTap);
+  window.removeEventListener('pointerdown', unlockOnFirstGesture);
+  window.removeEventListener('touchend', unlockOnFirstGesture);
+  window.removeEventListener('click', unlockOnFirstGesture);
 };
-window.addEventListener('pointerdown', unlockOnFirstTap);
+window.addEventListener('pointerdown', unlockOnFirstGesture);
+window.addEventListener('touchend', unlockOnFirstGesture);
+window.addEventListener('click', unlockOnFirstGesture);
 
 game.boot();
 

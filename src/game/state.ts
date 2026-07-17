@@ -277,11 +277,13 @@ export class Game {
 
   /** タイトルの「おと」トグル */
   private toggleSound(): void {
-    if (!this.profileId) return;
     unlockAudio();
     this.save.soundEnabled = !this.save.soundEnabled;
     setSoundEnabled(this.save.soundEnabled);
-    persistSave(this.profileId, this.save);
+    // プロフィール選択済みならセーブへ。未選択でもメモリ上のフラグは切り替わる
+    if (this.profileId) persistSave(this.profileId, this.save);
+    // ON にした瞬間に1音鳴らして、端末の消音/制限に気づけるようにする
+    if (this.save.soundEnabled) playPon();
     this.toTitle();
   }
 

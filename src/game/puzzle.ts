@@ -24,6 +24,8 @@ export class PuzzleController {
   enabled = true;
   /** パネル操作があったときに呼ぶ(ヒントの無操作タイマー用) */
   onUserAction: (() => void) | null = null;
+  /** パネルをスロットに置いたとき(効果音用。game/state から配線) */
+  onPanelPlaced: (() => void) | null = null;
 
   constructor(deps: PuzzleDeps) {
     this.deps = deps;
@@ -59,6 +61,7 @@ export class PuzzleController {
       boardView.refresh(grid, pos);
       this.refreshHighlight();
       hud.hidePanelPopup();
+      this.onPanelPlaced?.();
       return;
     }
 

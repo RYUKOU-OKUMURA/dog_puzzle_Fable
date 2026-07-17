@@ -3,6 +3,7 @@ import { findPath } from '../core/path';
 import { findHintTarget } from '../core/solver';
 import type { GridPos, PanelKind, StageDef } from '../core/types';
 import { posKey } from '../core/types';
+import { playFanfare, playPaku, playPon, setSoundEnabled, unlockAudio } from '../audio/sfx';
 import type { SceneContext } from '../scene/renderer';
 import { cellToScreen } from '../scene/input';
 import { gridToWorld } from '../scene/coords';
@@ -140,8 +141,7 @@ export class Game {
   /** セーブの装備をしばちゃんへ反映(友犬には付けない。未所持は外す) */
   private refreshShibaAccessory(): void {
     const id = this.save.equippedAccessoryId;
-    const safe =
-      id !== null && this.save.ownedAccessories.includes(id) ? id : null;
+    const safe = id !== null && this.save.ownedAccessories.includes(id) ? id : null;
     applyAccessory(this.shiba, safe);
   }
 
@@ -197,6 +197,7 @@ export class Game {
     persistProfileIndex({ ...index, activeId: id });
     this.profileId = id;
     this.save = loadSave(id);
+    this.syncSoundFromSave();
     this.ensureShibaPhoto();
     this.refreshShibaAccessory();
     this.toTitle();
@@ -239,6 +240,7 @@ export class Game {
     if (this.profileId === id) {
       this.profileId = null;
       this.save = emptySave();
+      this.syncSoundFromSave();
       this.refreshShibaAccessory();
     }
     this.deps.profiles.refresh({ profiles, activeId });
@@ -266,6 +268,21 @@ export class Game {
         sceneContext.capturePhotoAt(world.x, world.z, 4.2, 320),
       );
     }
+  }
+
+  /** セーブのおと設定を audio モジュールへ反映(プロフィール切替時) */
+  private syncSoundFromSave(): void {
+    setSoundEnabled(this.save.soundEnabled);
+  }
+
+  /** タイトルの「おと」トグル */
+  private toggleSound(): void {
+    if (!this.profileId) return;
+    unlockAudio();
+    this.save.soundEnabled = !this.save.soundEnabled;
+    setSoundEnabled(this.save.soundEnabled);
+    persistSave(this.profileId, this.save);
+    this.toTitle();
   }
 
   // ---------- ステージ実行時 ----------
@@ -336,6 +353,8 @@ export class Game {
       this.activeProfileChip(),
       () => this.showSelect(),
       () => this.openDressUp(),
+      this.save.soundEnabled,
+      () => this.toggleSound(),
     );
   }
 
@@ -421,6 +440,7 @@ export class Game {
     this.resetShiba();
     this.resetHintTracking();
     this.runtime.puzzle.onUserAction = () => this.onPuzzleAction();
+    this.runtime.puzzle.onPanelPlaced = () => playPon();
     this.deps.hud.setVisible(true);
     this.runtime.puzzle.enabled = true;
     this.deps.hud.showToast('みちパネルで おうちから ゴールまで つなげてね!', 3200);
@@ -643,6 +663,7 @@ export class Game {
         const key = posKey(cell);
         if (remaining.has(key)) {
           remaining.delete(key);
+          playPaku();
           return treats.eatAt(cell, animator);
         }
       };
@@ -699,6 +720,9 @@ export class Game {
     const { sceneContext, animator, screens } = this.deps;
     const stage = this.runtime!.stage;
     const dogInfo = DOGS[stage.encounterDogId]!;
+
+    // クリア成功の演出開始(ファンファーレ)
+    playFanfare();
 
     // ゴールの「道と反対側」に新しい友だちが現れる
     const roadDir = connectionsOf('end', stage.goal.rotation)[0]!;
@@ -771,11 +795,7 @@ export class Game {
     const afterCleared = this.clearedSet();
     const nowWorldCleared = loc ? isWorldCleared(loc.world, afterCleared) : false;
     const firstWorldClear = !wasWorldCleared && nowWorldCleared;
-    const { grantedId } = grantWorldClearAccessory(
-      this.save,
-      loc?.world.id ?? '',
-      firstWorldClear,
-    );
+    const { grantedId } = grantWorldClearAccessory(this.save, loc?.world.id ?? '', firstWorldClear);
     if (grantedId) {
       persistSave(this.profileId, this.save);
       this.refreshShibaAccessory();

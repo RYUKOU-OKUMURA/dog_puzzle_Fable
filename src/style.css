@@ -94,6 +94,13 @@ body {
   padding: 18px 48px;
 }
 
+/* タイトルの「おと」トグル(M13)。既存 btn-sub の小さめ版 */
+.btn.sound-toggle {
+  font-size: 16px;
+  padding: 10px 22px;
+  min-height: 48px;
+}
+
 ruby rt {
   font-size: 0.45em;
   color: inherit;
@@ -938,4 +945,3 @@ ruby rt {
   gap: 12px;
   padding: 12px 18px;
 }
-

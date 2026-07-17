@@ -1,4 +1,5 @@
 import './style.css';
+import { unlockAudio } from './audio/sfx';
 import { Game } from './game/state';
 import { Animator } from './game/tween';
 import { cellToScreen } from './scene/input';
@@ -45,6 +46,13 @@ const game = new Game({
   stageSelect,
   canvas,
 });
+
+// iPad 自動再生制限: 最初のユーザータップで AudioContext を起こす
+const unlockOnFirstTap = (): void => {
+  unlockAudio();
+  window.removeEventListener('pointerdown', unlockOnFirstTap);
+};
+window.addEventListener('pointerdown', unlockOnFirstTap);
 
 game.boot();
 

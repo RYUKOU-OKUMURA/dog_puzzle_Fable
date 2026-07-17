@@ -15,8 +15,8 @@ export interface ZukanEntry {
 
 /**
  * プロフィール別セーブ。v1 と同じ中身 + version 2。
- * きせかえ(M9)・設定はプロフィールごとに保存する想定だが、
- * プロフィール導入時点では構造を変えず version だけ上げる(破壊的変更なし)。
+ * きせかえ(M9)・おと設定(M13)はプロフィールごとに保存する。
+ * フィールド追加は optional + normalizeSaveData のデフォルト補完で後方互換(破壊的変更なし)。
  */
 export interface SaveData {
   version: 2;
@@ -26,6 +26,8 @@ export interface SaveData {
   ownedAccessories: string[];
   /** 装備中。未装備は null */
   equippedAccessoryId: string | null;
+  /** 効果音オン(M13)。旧セーブ欠損時は true(ON)で補完 */
+  soundEnabled: boolean;
 }
 
 export function emptySave(): SaveData {
@@ -35,6 +37,7 @@ export function emptySave(): SaveData {
     stages: {},
     ownedAccessories: [],
     equippedAccessoryId: null,
+    soundEnabled: true,
   };
 }
 
@@ -95,6 +98,11 @@ export function normalizeSaveData(input: unknown): SaveData {
     save.ownedAccessories.includes(obj.equippedAccessoryId)
   ) {
     save.equippedAccessoryId = obj.equippedAccessoryId;
+  }
+
+  // おと(M13): boolean の false だけ OFF。欠損・型違いは ON(後方互換)
+  if (typeof obj.soundEnabled === 'boolean') {
+    save.soundEnabled = obj.soundEnabled;
   }
 
   return save;

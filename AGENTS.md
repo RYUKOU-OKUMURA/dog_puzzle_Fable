@@ -19,6 +19,7 @@
 | [docs/reference/](docs/reference/)           | 最低基準クオリティーの見本画像                  | 見た目の実装後、比較確認に必ず |
 | [docs/tech-stack.md](docs/tech-stack.md)     | 技術選定と構成方針                              | 依存追加・構成変更の前に必ず   |
 | [docs/plan.md](docs/plan.md)                 | 実装計画とマイルストーン(フェーズ2・2.5)        | タスク着手時                   |
+| [docs/plan-phase3.md](docs/plan-phase3.md)   | 実装計画とマイルストーン(フェーズ3・M13〜)      | フェーズ3のタスク着手時        |
 | [docs/roadmap.md](docs/roadmap.md)           | MVP後の残タスク・50ステージ化計画(引き継ぎ資料) | MVP後(フェーズ3)のタスク着手時 |
 
 ## 3. コマンド
@@ -41,6 +42,7 @@ src/
   stage/  ステージ定義と犬種データ
   ui/     DOMオーバーレイ(画面・HUD・図鑑)
   save/   localStorage 保存
+  audio/  効果音(Web Audio API 合成。他層に依存しない)
 tests/    core のユニットテスト
 ```
 

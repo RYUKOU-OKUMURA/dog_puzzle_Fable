@@ -39,6 +39,8 @@ export class Screens {
     profile: { name: string; emoji: string } | null,
     onSwitchProfile: () => void,
     onDressUp: () => void,
+    soundEnabled: boolean,
+    onToggleSound: () => void,
   ): void {
     const screen = document.createElement('div');
     screen.className = 'screen screen-sky';
@@ -78,6 +80,18 @@ export class Screens {
     dressButton.addEventListener('click', onDressUp);
 
     screen.append(logo, sub, startButton, zukanButton, dressButton);
+
+    // おと ON/OFF(M13)。プロフィール選択後のみ(設定はプロフィール別)
+    if (profile) {
+      const soundButton = document.createElement('button');
+      soundButton.className = 'btn btn-sub sound-toggle';
+      soundButton.type = 'button';
+      soundButton.textContent = soundEnabled ? '🔊 おと ON' : '🔇 おと OFF';
+      soundButton.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
+      soundButton.addEventListener('click', onToggleSound);
+      screen.append(soundButton);
+    }
+
     this.mount(screen);
   }
 
@@ -107,10 +121,7 @@ export class Screens {
     screen.append(card);
     this.mount(screen);
 
-    window.setTimeout(
-      () => this.burstHearts(window.innerWidth / 2, window.innerHeight * 0.35),
-      80,
-    );
+    window.setTimeout(() => this.burstHearts(window.innerWidth / 2, window.innerHeight * 0.35), 80);
   }
 
   /**

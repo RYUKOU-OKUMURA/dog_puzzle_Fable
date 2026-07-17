@@ -1,0 +1,557 @@
+<title>おとのじっけん — Web Audioデモ</title>
+<style>
+  :root {
+    --ground: #F7EFE2;
+    --card: #FFFBF4;
+    --ink: #463526;
+    --ink-soft: #8A7460;
+    --shiba: #DE8A38;
+    --shiba-deep: #C67322;
+    --sakura: #EFB9C6;
+    --green: #7FA76B;
+    --line: #E8DCC9;
+    --shadow: rgba(70, 53, 38, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #211B14;
+      --card: #2C241B;
+      --ink: #F1E7D7;
+      --ink-soft: #B3A38F;
+      --shiba: #E99C4F;
+      --shiba-deep: #D9863A;
+      --sakura: #C98FA0;
+      --green: #8FB57C;
+      --line: #3E3428;
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #F7EFE2;
+    --card: #FFFBF4;
+    --ink: #463526;
+    --ink-soft: #8A7460;
+    --shiba: #DE8A38;
+    --shiba-deep: #C67322;
+    --sakura: #EFB9C6;
+    --green: #7FA76B;
+    --line: #E8DCC9;
+    --shadow: rgba(70, 53, 38, 0.08);
+  }
+  :root[data-theme="dark"] {
+    --ground: #211B14;
+    --card: #2C241B;
+    --ink: #F1E7D7;
+    --ink-soft: #B3A38F;
+    --shiba: #E99C4F;
+    --shiba-deep: #D9863A;
+    --sakura: #C98FA0;
+    --green: #8FB57C;
+    --line: #3E3428;
+    --shadow: rgba(0, 0, 0, 0.35);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN",
+      "BIZ UDPGothic", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+    line-height: 1.75;
+    padding: 2.5rem 1.25rem 4rem;
+  }
+  main { max-width: 40rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  header .eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    color: var(--shiba-deep);
+    font-weight: 700;
+  }
+  h1 {
+    font-size: 1.55rem;
+    line-height: 1.4;
+    margin: 0.35rem 0 0.6rem;
+    text-wrap: balance;
+    font-weight: 800;
+  }
+  header p { color: var(--ink-soft); font-size: 0.95rem; max-width: 36rem; }
+  header strong { color: var(--ink); }
+
+  section.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 1.4rem 1.5rem 1.6rem;
+    box-shadow: 0 4px 16px var(--shadow);
+  }
+  h2 { font-size: 1.05rem; margin: 0 0 0.2rem; font-weight: 800; }
+  .sub { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 1.1rem; }
+
+  /* --- BGMプレイヤー --- */
+  .player { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; }
+  #playBtn {
+    width: 4.5rem; height: 4.5rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--shiba);
+    color: #FFF9EF;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 5px 14px var(--shadow);
+    transition: transform 0.12s ease, background 0.12s ease;
+    flex-shrink: 0;
+  }
+  #playBtn:hover { background: var(--shiba-deep); }
+  #playBtn:active { transform: scale(0.94); }
+  #playBtn:focus-visible, .sfx button:focus-visible, .switch input:focus-visible + .track {
+    outline: 3px solid var(--sakura);
+    outline-offset: 2px;
+  }
+  #playBtn.playing { background: var(--green); }
+
+  .player-info { display: flex; flex-direction: column; gap: 0.5rem; }
+  .beats { display: flex; gap: 0.55rem; align-items: center; height: 1rem; }
+  .beats span {
+    width: 0.7rem; height: 0.7rem;
+    border-radius: 50%;
+    background: var(--line);
+    transition: transform 0.1s ease, background 0.1s ease;
+  }
+  .beats span.on { background: var(--shiba); transform: scale(1.35); }
+  #playLabel { font-size: 0.85rem; color: var(--ink-soft); }
+
+  .switch {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    cursor: pointer; user-select: none;
+    margin-top: 1.1rem;
+    font-size: 0.9rem; font-weight: 700;
+  }
+  .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .switch .track {
+    width: 2.9rem; height: 1.65rem;
+    border-radius: 999px;
+    background: var(--line);
+    position: relative;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+  }
+  .switch .track::after {
+    content: "";
+    position: absolute;
+    top: 0.2rem; left: 0.2rem;
+    width: 1.25rem; height: 1.25rem;
+    border-radius: 50%;
+    background: var(--card);
+    box-shadow: 0 1px 4px var(--shadow);
+    transition: left 0.15s ease;
+  }
+  .switch input:checked + .track { background: var(--green); }
+  .switch input:checked + .track::after { left: 1.45rem; }
+  .switch small { display: block; font-weight: 400; color: var(--ink-soft); }
+
+  details {
+    margin-top: 1.2rem;
+    border-top: 1px dashed var(--line);
+    padding-top: 0.9rem;
+    font-size: 0.85rem;
+  }
+  details summary { cursor: pointer; color: var(--shiba-deep); font-weight: 700; }
+  details pre {
+    overflow-x: auto;
+    background: var(--ground);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    margin-top: 0.7rem;
+    font-size: 0.78rem;
+    line-height: 1.6;
+  }
+  details code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  details p { color: var(--ink-soft); margin-top: 0.5rem; }
+
+  /* --- 効果音ボタン --- */
+  .sfx {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 0.7rem;
+  }
+  .sfx button {
+    display: flex; align-items: center; gap: 0.55rem;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 0.6rem 1rem;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 6px var(--shadow);
+    transition: transform 0.1s ease, border-color 0.1s ease;
+    text-align: left;
+  }
+  .sfx button:hover { border-color: var(--shiba); }
+  .sfx button:active { transform: translateY(2px); }
+  .sfx button .icon { font-size: 1.15rem; }
+  .sfx button small { display: block; font-weight: 400; font-size: 0.72rem; color: var(--ink-soft); }
+
+  footer { font-size: 0.8rem; color: var(--ink-soft); max-width: 36rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .beats span.on { transform: none; }
+  }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">しばちゃんのおさんぽパズル</div>
+    <h1>おとのじっけん室 🐕</h1>
+    <p>
+      このページの音は、<strong>音声ファイルもAI作曲も使っていません</strong>。
+      ブラウザ内蔵のシンセサイザー（Web Audio API）が、その場で波形を計算して鳴らしています。
+      曲も効果音も、正体はこのページのコードに書いた数字のならびだけです。
+    </p>
+  </header>
+
+  <section class="card">
+    <h2>BGM — W1「にほん」わふうループ</h2>
+    <p class="sub">ヨナぬき音階のオルゴール曲・8小節ループ。とちゅうで切りかえてみてね。</p>
+    <div class="player">
+      <button id="playBtn" aria-label="BGMをならす">▶</button>
+      <div class="player-info">
+        <div class="beats" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div id="playLabel">タップで ならす</div>
+      </div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="walkMode" />
+      <span class="track" aria-hidden="true"></span>
+      <span>おさんぽアレンジ
+        <small>おなじ曲にリズムトラックが重なる（場面切りかえのデモ）</small>
+      </span>
+    </label>
+    <details>
+      <summary>きょくの正体を見る（コードの抜粋）</summary>
+      <pre><code>// メロディ = [拍, 音, 長さ] のならび。これが曲の全データ
+const MELODY = [
+  [0,'E5',1], [1,'G5',1], [2,'A5',1], [3,'G5',1],
+  [4,'E5',1], [5,'D5',1], [6,'C5',2],
+  [8,'D5',0.5], [8.5,'E5',0.5], [9,'G5',1], [10,'A5',1], [11,'G5',1],
+  [12,'D5',3],
+  ...
+];
+const CHORDS = ['C','Am','G','G','C','Am','G','C']; // 伴奏は1小節1コード</code></pre>
+      <p>再生ボタンを押すと、この表を上から読んで「その時刻にその高さのサイン波を鳴らして、オルゴールみたいにすっと減衰させる」を繰り返しているだけ。</p>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>こうかおん</h2>
+    <p class="sub">ぜんぶ長さ0.5秒以下の合成音。ゲームの操作に合わせて鳴らす想定。</p>
+    <div class="sfx">
+      <button data-sfx="pon"><span class="icon">🧩</span><span>ポン<small>パネルをおく</small></span></button>
+      <button data-sfx="kuru"><span class="icon">🔄</span><span>クルッ<small>かいてん</small></span></button>
+      <button data-sfx="spo"><span class="icon">🫳</span><span>スポッ<small>はずす</small></span></button>
+      <button data-sfx="paku"><span class="icon">🦴</span><span>ぱくっ<small>おやつ</small></span></button>
+      <button data-sfx="wan"><span class="icon">🐕</span><span>ワン！<small>おさんぽスタート</small></span></button>
+      <button data-sfx="fuwan"><span class="icon">🤔</span><span>ふわん？<small>みちが つながってない</small></span></button>
+      <button data-sfx="fanfare"><span class="icon">🎉</span><span>ファンファーレ<small>クリア</small></span></button>
+    </div>
+  </section>
+
+  <footer>
+    音は最初のタップのあとに鳴ります（iPad・スマホの自動再生制限と同じ挙動を意図的に再現）。
+    ゲーム本体に入れる場合もこの仕組みのままで、通信なし・追加ファイルなし・追加ライブラリなしで完結します。
+  </footer>
+</main>
+
+<script>
+  'use strict';
+  // ===== 音の土台 =====================================================
+  // AudioContext はブラウザの自動再生制限のため、最初のタップで生成する
+  let ctx = null;
+  let master, delaySend, noiseBuf;
+
+  function audio() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // マスター: コンプレッサで音割れを防ぐ
+      const comp = ctx.createDynamicsCompressor();
+      comp.connect(ctx.destination);
+      master = ctx.createGain();
+      master.gain.value = 0.9;
+      master.connect(comp);
+      // 空間の残響がわり: フィードバックディレイ(こだま)を薄くまぜる
+      const delay = ctx.createDelay(1);
+      delay.delayTime.value = 0.27;
+      const fb = ctx.createGain();
+      fb.gain.value = 0.3;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 1500;
+      delay.connect(lp).connect(fb).connect(delay);
+      const wet = ctx.createGain();
+      wet.gain.value = 0.22;
+      delay.connect(wet).connect(master);
+      delaySend = delay;
+      // ノイズ素材(打楽器・効果音用)を1秒ぶんだけ作っておく
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  function freq(name) {
+    const midi = SEMI[name[0]] + 12 * (Number(name.slice(-1)) + 1);
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  const activeSrcs = [];
+  function track(src) { activeSrcs.push(src); return src; }
+
+  // オルゴールの1音: サイン波+高い倍音を、すっと減衰させる
+  function bell(t, f, dur, vol, useEcho) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.connect(master);
+    if (useEcho) g.connect(delaySend);
+    const o = track(ctx.createOscillator());
+    o.type = 'sine';
+    o.frequency.value = f;
+    o.connect(g);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(vol * 0.12, t);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.25);
+    g2.connect(master);
+    const o2 = track(ctx.createOscillator());
+    o2.type = 'sine';
+    o2.frequency.value = f * 4;
+    o2.connect(g2);
+    o2.start(t);
+    o2.stop(t + dur * 0.3);
+  }
+
+  function kick(t) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.4, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    g.connect(master);
+    const o = track(ctx.createOscillator());
+    o.type = 'sine';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(50, t + 0.1);
+    o.connect(g);
+    o.start(t);
+    o.stop(t + 0.16);
+  }
+
+  function hat(t) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.05, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 6500;
+    const s = track(ctx.createBufferSource());
+    s.buffer = noiseBuf;
+    s.connect(hp).connect(g).connect(master);
+    s.start(t);
+    s.stop(t + 0.05);
+  }
+
+  // ===== 曲データ: W1 にほん(ヨナぬき音階・88BPM・8小節) ==============
+  const BPM = 88;
+  const SPB = 60 / BPM;            // 1拍の秒数
+  const LOOP_BEATS = 32;
+  const MELODY = [
+    [0, 'E5', 1], [1, 'G5', 1], [2, 'A5', 1], [3, 'G5', 1],
+    [4, 'E5', 1], [5, 'D5', 1], [6, 'C5', 2],
+    [8, 'D5', 0.5], [8.5, 'E5', 0.5], [9, 'G5', 1], [10, 'A5', 1], [11, 'G5', 1],
+    [12, 'D5', 3],
+    [16, 'E5', 1], [17, 'G5', 1], [18, 'A5', 1], [19, 'C6', 1],
+    [20, 'A5', 1], [21, 'G5', 1], [22, 'E5', 2],
+    [24, 'G5', 1], [25, 'E5', 1], [26, 'D5', 1], [27, 'C5', 1],
+    [28, 'D5', 1], [29, 'C5', 3],
+  ];
+  const CHORDS = ['C', 'Am', 'G', 'G', 'C', 'Am', 'G', 'C'];
+  const BASS = { C: ['C3', 'G3'], Am: ['A2', 'E3'], G: ['G2', 'D3'] };
+  const ARP = { C: ['E4', 'G4', 'C5', 'G4'], Am: ['E4', 'A4', 'C5', 'A4'], G: ['D4', 'G4', 'B4', 'G4'] };
+
+  let playing = false;
+  let loopTimer = null;
+  let loopStart = 0;
+
+  function scheduleLoop(t0) {
+    const walk = document.getElementById('walkMode').checked;
+    for (const [beat, note, len] of MELODY) {
+      bell(t0 + beat * SPB, freq(note), Math.min(len * SPB + 0.7, 1.6), 0.22, true);
+    }
+    CHORDS.forEach((ch, bar) => {
+      const barT = t0 + bar * 4 * SPB;
+      bell(barT, freq(BASS[ch][0]), 1.1, 0.16, false);
+      bell(barT + 2 * SPB, freq(BASS[ch][1]), 1.1, 0.13, false);
+      ARP[ch].forEach((note, i) => {
+        bell(barT + (i + 0.5) * SPB, freq(note), 0.6, walk ? 0.1 : 0.05, false);
+      });
+      if (walk) {
+        kick(barT);
+        kick(barT + 2 * SPB);
+        for (let i = 0; i < 4; i++) hat(barT + (i + 0.5) * SPB);
+      }
+    });
+  }
+
+  function queueLoop(t0) {
+    loopStart = t0;
+    scheduleLoop(t0);
+    const loopEnd = t0 + LOOP_BEATS * SPB;
+    loopTimer = setTimeout(() => { if (playing) queueLoop(loopEnd); },
+      (loopEnd - ctx.currentTime - 0.4) * 1000);
+  }
+
+  function stopAll() {
+    clearTimeout(loopTimer);
+    for (const s of activeSrcs) { try { s.stop(); } catch (e) { /* 停止済みは無視 */ } }
+    activeSrcs.length = 0;
+  }
+
+  const playBtn = document.getElementById('playBtn');
+  const playLabel = document.getElementById('playLabel');
+  const beatDots = document.querySelectorAll('.beats span');
+
+  function setPlaying(on) {
+    playing = on;
+    playBtn.textContent = on ? '■' : '▶';
+    playBtn.classList.toggle('playing', on);
+    playBtn.setAttribute('aria-label', on ? 'BGMをとめる' : 'BGMをならす');
+    playLabel.textContent = on ? 'さいせいちゅう' : 'タップで ならす';
+    if (!on) beatDots.forEach((d) => d.classList.remove('on'));
+  }
+
+  playBtn.addEventListener('click', () => {
+    audio();
+    if (playing) { setPlaying(false); stopAll(); }
+    else { setPlaying(true); queueLoop(ctx.currentTime + 0.1); }
+  });
+
+  // アレンジ切りかえは、鳴っていれば今の頭からやりなおして即ちがいが分かるようにする
+  document.getElementById('walkMode').addEventListener('change', () => {
+    if (playing) { stopAll(); queueLoop(audio().currentTime + 0.1); }
+  });
+
+  // 拍にあわせてドットを光らせる(スケジューラと同じ時計を読むだけ)
+  function tick() {
+    if (playing && ctx) {
+      const beat = Math.floor(((ctx.currentTime - loopStart) / SPB) % 4 + 4) % 4;
+      beatDots.forEach((d, i) => d.classList.toggle('on', i === beat));
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  // ===== 効果音 =======================================================
+  function blip(t, f0, f1, dur, vol, type) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.connect(master);
+    const o = ctx.createOscillator();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    o.connect(g);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  function noiseHit(t, dur, vol, filterType, filterFreq) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const f = ctx.createBiquadFilter();
+    f.type = filterType;
+    f.frequency.value = filterFreq;
+    const s = ctx.createBufferSource();
+    s.buffer = noiseBuf;
+    s.connect(f).connect(g).connect(master);
+    s.start(t);
+    s.stop(t + dur + 0.05);
+  }
+
+  const SFX = {
+    pon(t) { blip(t, 660, 440, 0.16, 0.3); },
+    kuru(t) { blip(t, 587, 587, 0.07, 0.22); blip(t + 0.07, 880, 880, 0.09, 0.22); },
+    spo(t) { blip(t, 440, 210, 0.12, 0.28); noiseHit(t, 0.04, 0.1, 'lowpass', 1200); },
+    paku(t) {
+      noiseHit(t, 0.05, 0.14, 'lowpass', 900);
+      blip(t + 0.04, 523, 523, 0.07, 0.26);
+      blip(t + 0.12, 349, 349, 0.09, 0.22);
+    },
+    wan(t) {
+      // サイン波でなく倍音の多いノコギリ波を急降下させると鳴き声っぽくなる
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(0.45, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.Q.value = 3;
+      f.frequency.setValueAtTime(1800, t);
+      f.frequency.exponentialRampToValueAtTime(500, t + 0.16);
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(400, t);
+      o.frequency.exponentialRampToValueAtTime(120, t + 0.16);
+      o.connect(f).connect(g).connect(master);
+      o.start(t);
+      o.stop(t + 0.25);
+    },
+    fuwan(t) {
+      // 「？」の音: ブザーではなく、やわらかく上がる音で優しく知らせる
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.2, t + 0.05);
+      g.gain.setValueAtTime(0.2, t + 0.25);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      g.connect(master);
+      g.connect(delaySend);
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(294, t);
+      o.frequency.exponentialRampToValueAtTime(440, t + 0.35);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.55);
+    },
+    fanfare(t) {
+      ['C5', 'E5', 'G5'].forEach((n, i) => bell(t + i * 0.13, freq(n), 0.5, 0.3, true));
+      ['C5', 'E5', 'G5', 'C6'].forEach((n) => {
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.1, t + 0.42);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.35);
+        g.connect(master);
+        g.connect(delaySend);
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.value = freq(n);
+        o.connect(g);
+        o.start(t + 0.42);
+        o.stop(t + 1.4);
+      });
+      bell(t + 0.42, freq('C6') * 2, 0.8, 0.12, true);
+    },
+  };
+
+  document.querySelectorAll('.sfx button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      audio();
+      SFX[btn.dataset.sfx](ctx.currentTime + 0.02);
+    });
+  });
+</script>

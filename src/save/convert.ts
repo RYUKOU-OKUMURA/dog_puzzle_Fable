@@ -22,10 +22,20 @@ export interface SaveData {
   version: 2;
   zukan: Record<string, ZukanEntry>;
   stages: Record<string, { cleared: boolean }>;
+  /** 入手済みアクセサリーid(M9)。旧セーブに無くても normalize で補完 */
+  ownedAccessories: string[];
+  /** 装備中。未装備は null */
+  equippedAccessoryId: string | null;
 }
 
 export function emptySave(): SaveData {
-  return { version: 2, zukan: {}, stages: {} };
+  return {
+    version: 2,
+    zukan: {},
+    stages: {},
+    ownedAccessories: [],
+    equippedAccessoryId: null,
+  };
 }
 
 /** 相棒の柴犬はどのプロフィールでも最初から図鑑に登録済みにする */
@@ -67,6 +77,24 @@ export function normalizeSaveData(input: unknown): SaveData {
     for (const [id, entry] of Object.entries(obj.stages as Record<string, unknown>)) {
       if (isValidStageEntry(entry)) save.stages[id] = { cleared: entry.cleared };
     }
+  }
+
+  // きせかえ(M9): 型が壊れていれば黙ってデフォルト(空・未装備)
+  if (Array.isArray(obj.ownedAccessories)) {
+    const seen = new Set<string>();
+    for (const id of obj.ownedAccessories) {
+      if (typeof id !== 'string' || id.length === 0 || seen.has(id)) continue;
+      seen.add(id);
+      save.ownedAccessories.push(id);
+    }
+  }
+  // 装備は所持に含まれる文字列だけ通す(未所持・未知の装備指定は黙って外す)
+  if (
+    typeof obj.equippedAccessoryId === 'string' &&
+    obj.equippedAccessoryId.length > 0 &&
+    save.ownedAccessories.includes(obj.equippedAccessoryId)
+  ) {
+    save.equippedAccessoryId = obj.equippedAccessoryId;
   }
 
   return save;

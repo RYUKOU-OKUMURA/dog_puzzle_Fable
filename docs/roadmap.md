@@ -11,19 +11,19 @@
 
 | 項目       | 状態                                                                                                         |
 | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| 品質ゲート | `npm run build` / `npm run test`(384 passed / 3 skipped)/ `npm run lint` すべてグリーン(M12パートC時点)。TODO/FIXME/HACK 0件 |
+| 品質ゲート | `npm run build` / `npm run test`(398 passed / 3 skipped)/ `npm run lint` すべてグリーン(M9実装時点)。TODO/FIXME/HACK 0件 |
 | ステージ数 | 5ワールド × 4 = 20(M11 で大型化・難化済み)                                                                   |
 | 図鑑       | 柴犬含め 21犬種                                                                                              |
 | デプロイ   | main へ push → GitHub Actions(`.github/workflows/deploy.yml`)→ Pages 自動デプロイ。稼働確認済み              |
 | 公開URL    | <https://ryukou-okumura.github.io/dog_puzzle_Fable/>                                                         |
 | Pages 設定 | Source =「GitHub Actions」(`build_type: workflow`)設定済み。`vite.config.ts` の `base: '/dog_puzzle_Fable/'` |
-| 分岐方針   | **50ステージ化は保留**(現行5ワールドで M9 へ)。見た目案は [m9-accessory-proposals.md](./m9-accessory-proposals.md)(人間承認待ち)。方針変更時は 3.1-#4 を更新 |
-| 未 push    | M12 の2コミット(`c3f2fe0` / `2d101bd`)が `origin/main` より ahead。Pages 反映には `git push` が必要          |
+| 分岐方針   | **50ステージ化は保留**(現行5ワールド)。見た目案は [m9-accessory-proposals.md](./m9-accessory-proposals.md)(**§4 承認済み**・入口A)。方針変更時は 3.1-#4 を更新 |
+| 未 push    | `main` は `origin/main` と同期済み(ahead 0)。M9 実装コミット後は push で Pages 更新 |
 
 ## 2. 未完了マイルストーン(plan.md より)
 
 - **M2**: iPad Safari 実機確認のみ残(人間側。→ 3.1)
-- **M9 きせかえ**: 全部未着手(→ 3.3)
+- **M9 きせかえ**: **実装済み**(受け入れ条件は plan.md M9 を参照。縦長UI・通しプレイの目視は人間側)
 - **M11**: 人間のプレイテスト2件のみ残(→ 3.1)
 - **M12 小ネタ**: 完了(パートA おやつ上限5化 + パートC 障害物添景 `岩`/`柵`)
 
@@ -38,7 +38,7 @@
 | 3   | 縦長ビューポート(820×1180)で全20ステージの盤面・HUD を目視確認(観点は下記)                  | plan.md M11 未完了     |
 | 4   | ~~50ステージ化企画(5章)の承認/修正の決定~~ **保留**(2026-07-17・引き継ぎ方針)。現行5ワールド維持で M9 へ。5章ドラフトは破棄せず保管。方針変更時はこの行を更新 | 5章・3.3 の依存関係    |
 | 5   | ~~M12 障害物添景の見た目(色・形)の事前承認~~ **完了**(案1 いわ + 案2 こうじのさく 承認済み)  | plan.md M12 の承認事項 |
-| 6   | **M9 アクセサリー5種の見た目・付け替え入口の承認**([m9-accessory-proposals.md](./m9-accessory-proposals.md) §4) | plan.md M9・design-guide・AGENTS.md 7章(見た目の事前承認) |
+| 6   | ~~**M9 アクセサリー5種の見た目・付け替え入口の承認**~~ **承認済み**(§2 5種そのまま / 入口A・タイトル「きせかえ」。50ステージ化は引き続き保留) | plan.md M9・design-guide・AGENTS.md 7章(見た目の事前承認) |
 
 #### 3.1-#1 手順: iPad Safari PWA(M2)
 
@@ -73,13 +73,14 @@ DevTools 等で 820×1180。全20ステージについて:
 - 障害物添景は「トークン表(`src/stage/stageMap.ts`)→ 3D描画(`src/scene/scenery.ts`)→ パーサテスト」の3点セットで追加済み(`岩`=`rock` / `柵`=`fence`)。w2-s2・w3-s2 に配置
 - 5章の W10〜W12 の難度設計はおやつ5個・障害物添景を前提にしている(M12 完了により 50ステージ化の前提が揃った)
 
-### 3.3 優先度2: M9(きせかえ) — 見た目承認待ち → 実装可
+### 3.3 優先度2: M9(きせかえ) — 実装済み
 
-受け入れ条件の正は [plan.md](./plan.md) M9。
+受け入れ条件の正は [plan.md](./plan.md) M9(チェック済み)。
 
-- **3.1-#4 保留**(現行5ワールド)。報酬は「ワールドクリア×5種」のまま requirements 5.5 どおりで着手してよい
-- **ブロッカーは 3.1-#6 のみ**: 見た目・付け替え入口の人間承認([m9-accessory-proposals.md](./m9-accessory-proposals.md))。**§4 承認前はコード変更なし**
-- 承認後の実装順は同文書 §5。セーブは `version: 2` の optional 追記(破壊的変更禁止)
+- **3.1-#4 保留**(現行5ワールド)。報酬は「ワールドクリア×5種」のまま requirements 5.5 どおり
+- **3.1-#6 承認済み**: 見た目・付け替え入口A([m9-accessory-proposals.md](./m9-accessory-proposals.md) §4)
+- セーブは `version: 2` の optional 追記(`ownedAccessories` / `equippedAccessoryId`)。破壊的変更なし
+- 付け替え入口はタイトルの「きせかえ」ボタン。3Dはしばちゃんのみ(友犬には付けない)
 - 5章を後日再開する場合の W6以降報酬は、当時あらためて決める(図鑑クイズ等の代替案は 5.7 / 6章#4 に残置)
 
 ### 3.4 優先度3: 50ステージ化の準備(企画承認後)
@@ -266,11 +267,11 @@ W1〜W5(既存) → W6 ドイツ・オーストリア → W7 イタリア → W8
 
 ### 8.1 実装再開の手順(次のセッションはここから)
 
-1. **M9**: [m9-accessory-proposals.md](./m9-accessory-proposals.md) §4 が承認済みなら実装着手。未承認なら見た目の修正指示だけ受けて文書を更新する。仕様の正は [plan.md](./plan.md) M9
+1. **M9**: 実装済み。残るのは縦長820×1180のきせかえ画面・装着見た目の目視と、必要なら Pages への push
 2. **人間確認**: 3.1-#1〜#3 は開発と並行で随時(エージェントはチェックリスト整理まで。実機操作は人間)
 3. **5章・6章**に着手する場合のみ、先に `docs/plan-phase3.md` を新設し(初回のみ)、M13 以降として正式化してから実装する。新設時は AGENTS.md 2章の必読ドキュメント表へ行を追加すること。**現時点では 5章保留のため不要**
 4. 完了判定は常に AGENTS.md 6章の Definition of Done
-5. Pages に M12 以降を出すときは `main` を `git push`(ahead 分の反映)
+5. Pages に未反映コミットがあるときは `main` を `git push`
 
 ### 8.2 詳細をどこに書くか(役割分担)
 

@@ -6,7 +6,7 @@ import { posKey } from '../core/types';
 import type { SceneContext } from '../scene/renderer';
 import { cellToScreen } from '../scene/input';
 import { gridToWorld } from '../scene/coords';
-import { createDog, type DogModel } from '../scene/shiba';
+import { createDog, applyAccessory, type DogModel } from '../scene/shiba';
 import { disposeObject } from '../scene/dispose';
 import {
   countCollected,
@@ -39,10 +39,12 @@ import { WORLDS } from '../stage/catalog';
 import {
   clearedCountInWorld,
   isStageUnlocked,
+  isWorldCleared,
   isWorldUnlocked,
   locateStage,
   nextStageInWorld,
 } from '../stage/progress';
+import { getAccessory } from '../stage/accessories';
 import { DOG_ORDER, DOGS } from '../stage/dogs';
 import { iconEmoji } from '../ui/icons';
 import type { Hud } from '../ui/hud';
@@ -55,6 +57,7 @@ import { StageRuntime } from './stageRuntime';
 import type { Animator } from './tween';
 import { photoZoomForFriendScale } from './photo';
 import { firstClearCelebrationFlags } from './clearCelebration';
+import { grantWorldClearAccessory } from './accessoryReward';
 import { HintGeneration } from './hintGeneration';
 import {
   celebrate,
@@ -134,6 +137,14 @@ export class Game {
     return new Set(Object.keys(this.save.stages).filter((id) => this.save.stages[id]?.cleared));
   }
 
+  /** セーブの装備をしばちゃんへ反映(友犬には付けない。未所持は外す) */
+  private refreshShibaAccessory(): void {
+    const id = this.save.equippedAccessoryId;
+    const safe =
+      id !== null && this.save.ownedAccessories.includes(id) ? id : null;
+    applyAccessory(this.shiba, safe);
+  }
+
   /**
    * 起動処理。プロフィール一覧を読み込み、初回(プロフィール0件)で v1 セーブがあれば
    * 最初のプロフィールへ自動移行したうえで「だれが あそぶ?」画面へ。
@@ -187,6 +198,7 @@ export class Game {
     this.profileId = id;
     this.save = loadSave(id);
     this.ensureShibaPhoto();
+    this.refreshShibaAccessory();
     this.toTitle();
   }
 
@@ -227,6 +239,7 @@ export class Game {
     if (this.profileId === id) {
       this.profileId = null;
       this.save = emptySave();
+      this.refreshShibaAccessory();
     }
     this.deps.profiles.refresh({ profiles, activeId });
   }
@@ -272,6 +285,7 @@ export class Game {
     this.deps.hud.updatePalette(stage.palette ?? PLAYER_PANEL_KINDS);
     this.runtime.puzzle.selectKind(null);
     this.resetShiba();
+    this.refreshShibaAccessory();
   }
 
   /** パズルを操作不能にして盤面をリセット(選択画面へ出る前の片付け) */
@@ -315,11 +329,13 @@ export class Game {
     this.clearOverlays();
     this.deps.profiles.hide();
     this.resetShiba();
+    this.refreshShibaAccessory();
     this.deps.screens.showTitle(
       () => this.showWorldSelect(),
       () => this.openZukan(),
       this.activeProfileChip(),
       () => this.showSelect(),
+      () => this.openDressUp(),
     );
   }
 
@@ -433,6 +449,32 @@ export class Game {
 
   openZukan(): void {
     this.deps.zukan.show(this.save, () => {});
+  }
+
+  /** タイトルから開くきせかえ画面(入口A) */
+  private openDressUp(): void {
+    this.deps.screens.showDressUp(this.save, {
+      onEquip: (id) => this.equipAccessory(id),
+      onUnequip: () => this.unequipAccessory(),
+      onClose: () => this.toTitle(),
+    });
+  }
+
+  private equipAccessory(id: string): void {
+    if (!this.profileId) return;
+    if (!this.save.ownedAccessories.includes(id)) return;
+    this.save.equippedAccessoryId = id;
+    persistSave(this.profileId, this.save);
+    this.refreshShibaAccessory();
+    this.openDressUp();
+  }
+
+  private unequipAccessory(): void {
+    if (!this.profileId) return;
+    this.save.equippedAccessoryId = null;
+    persistSave(this.profileId, this.save);
+    this.refreshShibaAccessory();
+    this.openDressUp();
   }
 
   // ---------- しばちゃんヒント ----------
@@ -717,9 +759,27 @@ export class Game {
     // 演出のエッジ判定用: 登録・クリア記録の「前」の状態を取る
     const beforeCollected = countCollected(this.save);
     const wasStageCleared = this.save.stages[stage.id]?.cleared === true;
+    const loc = locateStage(WORLDS, stage.id);
+    const beforeCleared = this.clearedSet();
+    const wasWorldCleared = loc ? isWorldCleared(loc.world, beforeCleared) : true;
+
     // プロフィール未選択でここへ来ることはないが、型安全性のために抜ける(上でガード済み)
     registerDog(this.profileId, this.save, stage.encounterDogId, this.lastPhoto);
     markCleared(this.profileId, this.save, stage.id);
+
+    // ワールド初回クリア時だけきせかえを付与(再クリアでは付与しない)
+    const afterCleared = this.clearedSet();
+    const nowWorldCleared = loc ? isWorldCleared(loc.world, afterCleared) : false;
+    const firstWorldClear = !wasWorldCleared && nowWorldCleared;
+    const { grantedId } = grantWorldClearAccessory(
+      this.save,
+      loc?.world.id ?? '',
+      firstWorldClear,
+    );
+    if (grantedId) {
+      persistSave(this.profileId, this.save);
+      this.refreshShibaAccessory();
+    }
 
     this.phase = 'clear';
     const next = nextStageInWorld(WORLDS, stage.id);
@@ -734,15 +794,24 @@ export class Game {
       wasStageCleared,
     });
 
-    screens.showClear(
-      collected,
-      total,
-      next !== null,
-      () => this.goNextStage(),
-      () => this.openZukan(),
-      () => this.showStageSelect(backWorldId),
-      { zukanComplete, worldFinale },
-    );
+    const showClearScreen = (): void => {
+      screens.showClear(
+        collected,
+        total,
+        next !== null,
+        () => this.goNextStage(),
+        () => this.openZukan(),
+        () => this.showStageSelect(backWorldId),
+        { zukanComplete, worldFinale },
+      );
+    };
+
+    if (grantedId) {
+      const name = getAccessory(grantedId)?.name ?? grantedId;
+      screens.showAccessoryReward(name, showClearScreen);
+    } else {
+      showClearScreen();
+    }
   }
 
   /** クリア後「つぎのステージへ」: 同ワールドの次があれば突入、なければステージ選択へ */
@@ -784,8 +853,12 @@ export class Game {
         }
       }
     }
+    // 開発確認用: 全ワールドクリア済みなのできせかえも全所持
+    save.ownedAccessories = ['acc-w1', 'acc-w2', 'acc-w3', 'acc-w4', 'acc-w5'];
+    save.equippedAccessoryId = 'acc-w1';
     this.save = save;
     persistSave(this.profileId, save);
+    this.refreshShibaAccessory();
     this.showWorldSelect();
     return true;
   }

@@ -1,3 +1,5 @@
+import type { SaveData } from '../save/convert';
+import { ACCESSORIES } from '../stage/accessories';
 import type { DogInfo } from '../stage/dogs';
 import { dogInfoLinesHtml } from './dogInfo';
 
@@ -36,6 +38,7 @@ export class Screens {
     onZukan: () => void,
     profile: { name: string; emoji: string } | null,
     onSwitchProfile: () => void,
+    onDressUp: () => void,
   ): void {
     const screen = document.createElement('div');
     screen.className = 'screen screen-sky';
@@ -69,7 +72,115 @@ export class Screens {
     zukanButton.textContent = 'ずかんを みる';
     zukanButton.addEventListener('click', onZukan);
 
-    screen.append(logo, sub, startButton, zukanButton);
+    const dressButton = document.createElement('button');
+    dressButton.className = 'btn btn-sub';
+    dressButton.textContent = '🎀 きせかえ';
+    dressButton.addEventListener('click', onDressUp);
+
+    screen.append(logo, sub, startButton, zukanButton, dressButton);
+    this.mount(screen);
+  }
+
+  /**
+   * ワールド初回クリア報酬の「もらった!」カード。
+   * トーンは出会いカードに合わせる(🎉・否定表現なし)。
+   */
+  showAccessoryReward(accessoryName: string, onContinue: () => void): void {
+    const screen = document.createElement('div');
+    screen.className = 'screen screen-dim';
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      `<h2>きせかえを もらった! 🎉</h2>` +
+      `<div class="dog-note centered">` +
+      `<b>${escapeText(accessoryName)}</b> を てにいれたよ!<br />` +
+      `タイトルの 「きせかえ」 から つけかえできるよ` +
+      `</div>`;
+
+    const okButton = document.createElement('button');
+    okButton.className = 'btn btn-big btn-pink';
+    okButton.textContent = 'わーい!';
+    okButton.addEventListener('click', onContinue);
+
+    card.append(okButton);
+    screen.append(card);
+    this.mount(screen);
+
+    window.setTimeout(
+      () => this.burstHearts(window.innerWidth / 2, window.innerHeight * 0.35),
+      80,
+    );
+  }
+
+  /**
+   * きせかえ画面(入口A: タイトルから)。
+   * 所持一覧・装備切替・はずす。未所持はロック表示。
+   */
+  showDressUp(
+    save: SaveData,
+    handlers: {
+      onEquip: (id: string) => void;
+      onUnequip: () => void;
+      onClose: () => void;
+    },
+  ): void {
+    const screen = document.createElement('div');
+    screen.className = 'screen screen-sky';
+
+    const panel = document.createElement('div');
+    panel.className = 'card dress-up-panel';
+
+    const title = document.createElement('h2');
+    title.textContent = 'きせかえ 🎀';
+    panel.append(title);
+
+    const hint = document.createElement('div');
+    hint.className = 'dog-note centered';
+    hint.textContent = 'ワールドを クリアすると ふえるよ';
+    panel.append(hint);
+
+    const list = document.createElement('div');
+    list.className = 'dress-up-list';
+
+    for (const acc of ACCESSORIES) {
+      const owned = save.ownedAccessories.includes(acc.id);
+      const equipped = save.equippedAccessoryId === acc.id;
+      const tile = document.createElement(owned ? 'button' : 'div');
+      tile.className = 'select-tile dress-up-tile' + (owned ? '' : ' is-locked');
+      if (equipped) tile.classList.add('is-cleared');
+
+      if (owned) {
+        tile.innerHTML =
+          `<span class="select-tile-name">${escapeText(acc.name)}</span>` +
+          (equipped
+            ? `<span class="select-tile-badge is-done">きている</span>`
+            : `<span class="select-tile-badge">つける</span>`);
+        tile.addEventListener('click', () => handlers.onEquip(acc.id));
+      } else {
+        tile.innerHTML =
+          `<span class="select-tile-name">???</span>` +
+          `<span class="select-tile-sub">まだ てにいれて いないよ</span>`;
+      }
+      list.append(tile);
+    }
+    panel.append(list);
+
+    if (save.equippedAccessoryId) {
+      const unequip = document.createElement('button');
+      unequip.className = 'btn btn-sub';
+      unequip.textContent = 'はずす';
+      unequip.addEventListener('click', handlers.onUnequip);
+      panel.append(unequip);
+    }
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'btn';
+    closeButton.textContent = 'とじる';
+    closeButton.addEventListener('click', handlers.onClose);
+    panel.append(closeButton);
+
+    screen.append(panel);
     this.mount(screen);
   }
 

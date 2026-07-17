@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { ACCESSORY_FLAG, createAccessoryMesh } from './accessory';
+import { disposeObject } from './dispose';
+import { getAccessory } from '../stage/accessories';
 
 export interface DogModel {
   group: THREE.Group;
@@ -85,4 +88,37 @@ export function createDog(furColor: number, scale = 1): DogModel {
   group.scale.setScalar(scale);
 
   return { group, head };
+}
+
+/** しばちゃんに付いているアクセサリー子を外して GPU リソースも解放する */
+function clearAccessories(dog: DogModel): void {
+  const roots = [dog.group, dog.head];
+  for (const root of roots) {
+    const toRemove: THREE.Object3D[] = [];
+    for (const child of root.children) {
+      if (child.userData[ACCESSORY_FLAG]) toRemove.push(child);
+    }
+    for (const child of toRemove) {
+      root.remove(child);
+      disposeObject(child);
+    }
+  }
+}
+
+/**
+ * しばちゃんへアクセサリーを着脱する。友犬には呼ばないこと。
+ * id が null / 不明なら外すだけ。起動時・装備変更・ステージ開始で再適用する。
+ */
+export function applyAccessory(dog: DogModel, id: string | null): void {
+  clearAccessories(dog);
+  if (!id) return;
+  const def = getAccessory(id);
+  if (!def) return;
+  const mesh = createAccessoryMesh(id);
+  if (!mesh) return;
+  if (def.attach === 'head') {
+    dog.head.add(mesh);
+  } else {
+    dog.group.add(mesh);
+  }
 }

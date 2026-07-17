@@ -42,7 +42,9 @@ export type SceneryKind =
   | 'snowMountain'
   | 'fountain'
   | 'cactus'
-  | 'colorfulHouse';
+  | 'colorfulHouse'
+  | 'rock'
+  | 'fence';
 
 export interface StageDef {
   id: string;

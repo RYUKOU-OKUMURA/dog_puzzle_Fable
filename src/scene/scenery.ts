@@ -108,6 +108,10 @@ export function buildScenery(kind: SceneryKind, pos: GridPos, theme?: StageTheme
       return buildCactus(pos);
     case 'colorfulHouse':
       return buildColorfulHouse(pos, theme);
+    case 'rock':
+      return buildRock(pos);
+    case 'fence':
+      return buildFence(pos);
   }
 }
 
@@ -453,5 +457,71 @@ function buildColorfulHouse(pos: GridPos, theme?: StageTheme): THREE.Group {
   }
 
   group.rotation.y = (hash(pos, 2) % 4) * (Math.PI / 2);
+  return withShadow(group);
+}
+
+/**
+ * M12 障害物: いわ。Icosahedron を少し潰して重ね、通れない塊に見せる。
+ * 色は幹茶(0x9c6b4a)と台座ベージュ(0xd9b98c)のみ(design-guide 6.2)。高さは1.0未満。
+ */
+function buildRock(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const trunk = lambert(0x9c6b4a);
+  const pedestal = lambert(0xd9b98c);
+
+  const base = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), pedestal);
+  base.position.set(0.02, 0.16, -0.02);
+  base.scale.set(1.15, 0.7, 1.1);
+  group.add(base);
+
+  const mid = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), trunk);
+  mid.position.set(-0.06, 0.32, 0.04);
+  mid.scale.set(1.05, 0.75, 1.0);
+  group.add(mid);
+
+  const top = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 0), pedestal);
+  top.position.set(0.08, 0.48, -0.04);
+  top.scale.set(1.1, 0.65, 0.95);
+  group.add(top);
+
+  // マスごとに向きを少し変えて、並んでも同じ岩に見えないようにする
+  group.rotation.y = (hash(pos, 9) % 8) * (Math.PI / 4);
+  return withShadow(group);
+}
+
+/**
+ * M12 障害物: こうじのさく。細い柱+横板の柵と、手前のオレンジコーンで「通れない」を示す。
+ * 木部は幹茶、コーンは屋根オレンジ、白帯は花の白(いずれも 6.2 パレット内)。高さは round 1.0 未満。
+ */
+function buildFence(pos: GridPos): THREE.Group {
+  const group = new THREE.Group();
+  const wood = lambert(0x9c6b4a);
+  const coneOrange = lambert(0xf2903d);
+  const stripe = lambert(0xffffff);
+
+  // 横に並ぶ3本の細い柱
+  for (const x of [-0.28, 0, 0.28]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.55, 8), wood);
+    post.position.set(x, 0.275, 0);
+    group.add(post);
+  }
+
+  // 横板2枚で柵らしく見せる
+  const railTop = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.06, 0.04), wood);
+  railTop.position.set(0, 0.42, 0);
+  group.add(railTop);
+  const railMid = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.06, 0.04), wood);
+  railMid.position.set(0, 0.22, 0);
+  group.add(railMid);
+
+  // 手前の三角コーン(工事中の目印)
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.28, 8), coneOrange);
+  cone.position.set(0.18, 0.14, 0.22);
+  group.add(cone);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.09, 0.04, 8), stripe);
+  band.position.set(0.18, 0.12, 0.22);
+  group.add(band);
+
+  group.rotation.y = (hash(pos, 11) % 4) * (Math.PI / 2);
   return withShadow(group);
 }

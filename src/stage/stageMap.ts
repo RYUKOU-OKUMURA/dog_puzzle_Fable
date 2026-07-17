@@ -90,7 +90,7 @@ const END_ROTATION: Readonly<Record<Dir, Rotation>> = {
   W: 270,
 };
 
-/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜)。'山' はゆきやま、'噴' はふんすい(W3〜)。'サ' はサボテン、'カ' はカラフルな家(W4〜) */
+/** 添景トークン → 種別。'鳥' は鳥居(とりい)。'レ' はレンガの家、'電' はでんわボックス(W2〜)。'山' はゆきやま、'噴' はふんすい(W3〜)。'サ' はサボテン、'カ' はカラフルな家(W4〜)。'岩' はいわ、'柵' はこうじのさく(M12 障害物添景) */
 export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   木: 'tree',
   家: 'house',
@@ -104,6 +104,8 @@ export const SCENERY_TOKENS: Readonly<Record<string, SceneryKind>> = {
   噴: 'fountain',
   サ: 'cactus',
   カ: 'colorfulHouse',
+  岩: 'rock',
+  柵: 'fence',
 };
 
 /**

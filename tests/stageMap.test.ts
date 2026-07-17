@@ -27,8 +27,8 @@ describe('道トークンの接続が core/panel と一致する', () => {
   it('道トークンは11種(既存10+橋)', () => {
     expect(Object.keys(ROAD_TOKENS).length).toBe(11);
   });
-  it('添景トークンは12種(既存10+サ+カ)', () => {
-    expect(Object.keys(SCENERY_TOKENS).length).toBe(12);
+  it('添景トークンは14種(既存12+岩+柵)', () => {
+    expect(Object.keys(SCENERY_TOKENS).length).toBe(14);
   });
   it('W2の添景トークン(レ=レンガ家 / 電=でんわボックス)が含まれる', () => {
     expect(SCENERY_TOKENS['レ']).toBe('brickHouse');
@@ -41,6 +41,10 @@ describe('道トークンの接続が core/panel と一致する', () => {
   it('W4の添景トークン(サ=サボテン / カ=カラフルな家)が含まれる', () => {
     expect(SCENERY_TOKENS['サ']).toBe('cactus');
     expect(SCENERY_TOKENS['カ']).toBe('colorfulHouse');
+  });
+  it('M12の障害物添景トークン(岩=いわ / 柵=こうじのさく)が含まれる', () => {
+    expect(SCENERY_TOKENS['岩']).toBe('rock');
+    expect(SCENERY_TOKENS['柵']).toBe('fence');
   });
   it('橋トークンが bridge として含まれる', () => {
     expect(ROAD_TOKENS['橋']).toMatchObject({ kind: 'bridge', rotation: 0 });
@@ -392,6 +396,14 @@ describe('parseStageMap: W4の橋・添景トークン', () => {
     const parsed = parseStageMap(['★ ─ ◎', 'サ .  カ']);
     expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'cactus' });
     expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'colorfulHouse' });
+  });
+});
+
+describe('parseStageMap: M12の障害物添景トークン(岩・柵)', () => {
+  it('岩 は rock、柵 は fence として添景に並ぶ', () => {
+    const parsed = parseStageMap(['★ ─ ◎', '岩 .  柵']);
+    expect(parsed.scenery).toContainEqual({ pos: { x: 0, z: 1 }, kind: 'rock' });
+    expect(parsed.scenery).toContainEqual({ pos: { x: 2, z: 1 }, kind: 'fence' });
   });
 });
 

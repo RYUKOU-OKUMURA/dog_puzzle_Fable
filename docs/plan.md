@@ -51,10 +51,12 @@ defineStage({
 
 **受け入れ条件**:
 
-- [ ] `vite.config.ts` に `base` 設定、GitHub Actions で main push → Pages 自動デプロイ
-- [ ] `vite-plugin-pwa` で manifest(名前・テーマカラー `#bde3ff`・アイコン)+ Service Worker。アイコンは肉球や柴犬シルエットの自作SVG(design-guide のパレット内)
-- [ ] iPad Safari で「ホーム画面に追加」→ フルスクリーン起動 → 機内モードでもプレイできる
-- [ ] README に「あそびかた(URL・ホーム画面追加の手順)」を追記
+- [x] `vite.config.ts` に `base` 設定、GitHub Actions で main push → Pages 自動デプロイ
+- [x] `vite-plugin-pwa` で manifest(名前・テーマカラー `#bde3ff`・アイコン)+ Service Worker。アイコンは肉球や柴犬シルエットの自作SVG(design-guide のパレット内)
+- [ ] iPad Safari で「ホーム画面に追加」→ フルスクリーン起動 → 機内モードでもプレイできる(**人間の実機確認待ち**。`npm run preview` での SW 登録・オフライン再生はエージェント側で確認済み)
+- [x] README に「あそびかた(URL・ホーム画面追加の手順)」を追記
+
+**補足(2026-07)**: リポジトリ Settings → Pages → Source を「GitHub Actions」にする操作は人間側。`gh api .../pages -X POST -f build_type=workflow` で代替可。
 
 ## M3: プロフィール(子供ごとのセーブ分離)
 

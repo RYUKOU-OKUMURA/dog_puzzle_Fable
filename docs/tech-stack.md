@@ -77,9 +77,11 @@
 ## 5. デプロイ(GitHub Pages + PWA)
 
 - **GitHub Pages** で配信(無料プランのためリポジトリは public。個人情報はコードに含めない)
-- GitHub Actions で main への push 時に `vite build` → Pages へ自動デプロイ
-- Vite の `base: '/<リポジトリ名>/'` 設定が必要
-- **PWA対応**: `vite-plugin-pwa` で manifest + Service Worker を生成
+- GitHub Actions(`.github/workflows/deploy.yml`)で main への push 時に `npm test` → `vite build` → Pages へ自動デプロイ
+- Vite の `base: '/dog_puzzle_Fable/'`(絶対パス。相対 `./` は使わない — PWA の SW / manifest scope のため)
+- **PWA対応**: `vite-plugin-pwa`(devDependency。Vite 8 対応は 1.3.0+)で manifest + Service Worker を生成
+  - theme_color / background_color は空の色 `#bde3ff`
+  - アイコンは `public/icons/` の自作肉球 SVG / PNG(design-guide 6.2 パレット内)
   - iPad で「ホーム画面に追加」するとフルスクリーンのアプリとして起動
   - 初回ロード後はオフラインでもプレイ可能(アセットをプリキャッシュ)
 

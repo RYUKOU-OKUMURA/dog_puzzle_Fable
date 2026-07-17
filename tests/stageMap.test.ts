@@ -191,12 +191,14 @@ describe('defineStage: StageMapInput を StageDef に変換する', () => {
       name: 'テスト',
       world: 'w1',
       encounterDogId: 'dog',
+      bgmTrackId: 'japan-01',
       map: ['★ ─ ◎'],
     });
     expect(stage.id).toBe('test');
     expect(stage.name).toBe('テスト');
     expect(stage.world).toBe('w1');
     expect(stage.encounterDogId).toBe('dog');
+    expect(stage.bgmTrackId).toBe('japan-01');
     expect(stage.size).toEqual({ w: 3, h: 1 });
     expect(stage.start).toEqual({ pos: { x: 0, z: 0 }, rotation: 90 });
     expect(stage.goal).toEqual({ pos: { x: 2, z: 0 }, rotation: 270 });
@@ -204,6 +206,27 @@ describe('defineStage: StageMapInput を StageDef に変換する', () => {
     expect(stage.treats).toBeUndefined();
     expect(stage.palette).toBeUndefined();
   });
+});
+
+describe('defineStage: bgmTrackId の形式検証', () => {
+  const base = {
+    id: 't',
+    name: 't',
+    world: 'w1',
+    encounterDogId: 'd',
+    map: ['★ ─ ◎'],
+  };
+
+  it('小文字・数字・ハイフンのIDを保持する', () => {
+    expect(defineStage({ ...base, bgmTrackId: 'japan-01' }).bgmTrackId).toBe('japan-01');
+  });
+
+  it.each(['', 'Japan-01', 'japan_01', '-japan', 'japan-'])(
+    '不正なID「%s」は StageMapError',
+    (bgmTrackId) => {
+      expect(() => defineStage({ ...base, bgmTrackId })).toThrow(StageMapError);
+    },
+  );
 });
 
 describe('defineStage: treats のパースと検証', () => {
@@ -216,6 +239,7 @@ describe('defineStage: treats のパースと検証', () => {
       name: 't',
       world: 'w2',
       encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
       map: baseMap,
     });
     expect(stage.treats).toBeUndefined();
@@ -227,6 +251,7 @@ describe('defineStage: treats のパースと検証', () => {
       name: 't',
       world: 'w2',
       encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
       map: baseMap,
       treats: [],
     });
@@ -239,6 +264,7 @@ describe('defineStage: treats のパースと検証', () => {
       name: 't',
       world: 'w2',
       encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
       map: baseMap,
       treats: ['1,0', '1,1', '0,0'], // 固定道・スロット・★
     });
@@ -256,6 +282,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['1 0'],
       });
@@ -270,6 +297,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['9,9'],
       });
@@ -283,6 +311,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['0,1'], // (0,1)は芝生
       });
@@ -296,6 +325,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         map: ['★ ─ ◎', '木 □ .'],
         treats: ['0,1'], // (0,1)は木
       });
@@ -308,6 +338,7 @@ describe('defineStage: treats のパースと検証', () => {
       name: 't',
       world: 'w2',
       encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
       map: ['★ □ □ □ □ ◎'],
       treats: ['1,0', '2,0', '3,0', '4,0', '0,0'],
     });
@@ -321,6 +352,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         map: ['★ □ □ □ □ ◎'],
         treats: ['1,0', '2,0', '3,0', '4,0', '0,0', '5,0'],
       });
@@ -334,6 +366,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w2',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         map: baseMap,
         treats: ['1,0', '1,0'],
       });
@@ -348,6 +381,7 @@ describe('defineStage: treats のパースと検証', () => {
         name: 't',
         world: 'w4',
         encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
         // 橋は4方向が盤内、かつ上下の│も盤外を向かないよう余白つき
         map: ['. . . . .', '. . │ . .', '★ ─ 橋 ─ ◎', '. . │ . .', '. . . . .'],
         treats: ['2,2'],
@@ -413,6 +447,7 @@ describe('defineStage: palette の検証', () => {
     name: 't',
     world: 'w3',
     encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
     map: ['★ ─ ◎'],
   };
 
@@ -451,6 +486,7 @@ describe('defineStage: difficulty の範囲検証', () => {
     name: 't',
     world: 'w3',
     encounterDogId: 'd',
+      bgmTrackId: 'japan-01',
     map: ['★ ─ ◎'],
   };
 

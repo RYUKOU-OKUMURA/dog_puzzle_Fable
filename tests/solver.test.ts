@@ -32,6 +32,7 @@ function treatCorridorStage(treatCount: 4 | 5): StageDef {
     slots,
     scenery: [],
     encounterDogId: 'corgi',
+      bgmTrackId: 'japan-01',
     treats,
     palette: ['straight'],
   };

@@ -21,6 +21,7 @@ export const w2s2: StageDef = defineStage({
   id: 'w2-s2',
   name: 'イギリスの まち 2',
   world: 'w2',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'beagle',
   difficulty: 3,
   palette: ['straight', 'corner', 'tee'],

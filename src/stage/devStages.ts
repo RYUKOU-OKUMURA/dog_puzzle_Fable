@@ -14,6 +14,7 @@ export const VERIFY_12X12 = defineStage({
   id: 'verify-12x12',
   name: 'けんしょうよう 12×12',
   world: 'w1',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'akita',
   difficulty: 5,
   map: [

@@ -3,7 +3,7 @@ import { findPath } from '../core/path';
 import { findHintTarget } from '../core/solver';
 import type { GridPos, PanelKind, StageDef } from '../core/types';
 import { posKey } from '../core/types';
-import { getBgmMode, setBgmMode, stopBgm } from '../audio/bgm';
+import { setBgm, stopBgm } from '../audio/bgm';
 import {
   isSoundEnabled,
   playFanfare,
@@ -68,6 +68,7 @@ import { photoZoomForFriendScale } from './photo';
 import { firstClearCelebrationFlags } from './clearCelebration';
 import { grantWorldClearAccessory } from './accessoryReward';
 import { HintGeneration } from './hintGeneration';
+import { selectBgmForGame, type BgmPhase } from './bgmPolicy';
 import {
   celebrate,
   faceTowardIsometricCamera,
@@ -83,8 +84,7 @@ import {
 const HINT_IDLE_MS = 90_000;
 /** お散歩失敗(道未完成・おやつ残り)がこの回数でヒント */
 const HINT_FAIL_THRESHOLD = 2;
-export type Phase =
-  'select' | 'title' | 'worldSelect' | 'stageSelect' | 'puzzle' | 'walk' | 'encounter' | 'clear';
+export type Phase = BgmPhase;
 
 interface GameDeps {
   sceneContext: SceneContext;
@@ -117,6 +117,8 @@ export class Game {
   private idleTimerId: number | null = null;
   /** ヒント演出中は操作・再発火しない */
   private hintPlaying = false;
+  /** walk中のアレンジ判定。音声モジュールの内部状態をゲーム状態として逆参照しない。 */
+  private successfulWalk = false;
   /** ヒント演出の世代。resetHintTracking で invalidate し、await 後に stale なら中断 */
   private readonly hintGeneration = new HintGeneration();
 
@@ -294,16 +296,13 @@ export class Game {
       stopBgm();
       return;
     }
-    if (this.phase === 'encounter' || this.phase === 'clear') {
-      setBgmMode('off');
-      return;
-    }
-    // 成功お散歩中だけアレンジを維持(失敗お散歩は通常のまま)
-    if (this.phase === 'walk' && getBgmMode() === 'walk') {
-      setBgmMode('walk');
-      return;
-    }
-    setBgmMode('normal');
+    setBgm(
+      selectBgmForGame({
+        phase: this.phase,
+        stageTrackId: this.runtime?.stage.bgmTrackId ?? null,
+        successfulWalk: this.successfulWalk,
+      }),
+    );
   }
 
   /**
@@ -340,6 +339,7 @@ export class Game {
       hud: this.deps.hud,
       canvas: this.deps.canvas,
     });
+    this.successfulWalk = false;
     // 盤面サイズに合わせてカメラ表示範囲と影を合わせる(M10。8×8は現状の見た目不変)
     this.deps.sceneContext.fitToStage(stage.size.w, stage.size.h);
     this.deps.hud.updateStageName(stage.name);
@@ -482,6 +482,7 @@ export class Game {
   startPuzzle(): void {
     if (!this.runtime) return;
     this.phase = 'puzzle';
+    this.successfulWalk = false;
     this.removeFriend();
     this.runtime.reset();
     this.clearOverlays();
@@ -700,14 +701,14 @@ export class Game {
     this.clearIdleTimer();
     const result = findPath(grid);
     this.phase = 'walk';
+    this.successfulWalk = result.complete;
+    this.syncBgm();
     puzzle.enabled = false;
     puzzle.selectKind(null);
     hud.setVisible(false);
 
     if (result.complete) {
       this.resetHintTracking();
-      // クリア成功ルート: おさんぽアレンジを重ねる
-      setBgmMode('walk');
       // クリア: 全おやつを通るルートを歩く。通ったマスのおやつを「ぱくっ」と食べる
       const remaining = treats.remainingKeys();
       const eatIfTreat = (cell: GridPos): Promise<void> | void => {
@@ -734,9 +735,6 @@ export class Game {
       return;
     }
 
-    // 失敗お散歩: 通常ループのまま(アレンジなし・止めない。怖い無音にしない)
-    setBgmMode('normal');
-
     if (!result.goalReachable) {
       // (2) 道未完成: 行けるところまで歩いて、首をかしげて、おうちに戻る
       if (result.route.length > 1) {
@@ -759,6 +757,7 @@ export class Game {
 
     this.walkFailCount += 1;
     this.phase = 'puzzle';
+    this.successfulWalk = false;
     this.syncBgm();
     puzzle.enabled = true;
     hud.setVisible(true);
@@ -777,7 +776,7 @@ export class Game {
     const dogInfo = DOGS[stage.encounterDogId]!;
 
     // 出会い・クリア演出中は BGM を止め、既存ファンファーレのみ鳴らす
-    setBgmMode('off');
+    stopBgm();
     playFanfare();
 
     // ゴールの「道と反対側」に新しい友だちが現れる

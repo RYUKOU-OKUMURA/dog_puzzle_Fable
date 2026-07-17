@@ -1,6 +1,6 @@
 import './style.css';
-import { unlockAudio } from './audio/sfx';
-import { getBgmMode } from './audio/bgm';
+import { getBgmMode, getBgmSelection } from './audio/bgm';
+import { getAudioStatus, isAudioRunning, unlockAudio } from './audio/sfx';
 import { Game } from './game/state';
 import { Animator } from './game/tween';
 import { cellToScreen } from './scene/input';
@@ -48,18 +48,17 @@ const game = new Game({
   canvas,
 });
 
-// iPad 自動再生制限: 最初のユーザージェスチャで AudioContext を起こす
-// (pointerdown だけだと一部環境で resume が偶に失敗するため touchend/click も見る)
-const unlockOnFirstGesture = (): void => {
-  unlockAudio();
-  game.onAudioUnlocked();
-  window.removeEventListener('pointerdown', unlockOnFirstGesture);
-  window.removeEventListener('touchend', unlockOnFirstGesture);
-  window.removeEventListener('click', unlockOnFirstGesture);
+// iPad 自動再生制限: running を確認できるまで、次のユーザージェスチャでも再試行する。
+// 復帰後にブラウザが Context を再停止した場合にも同じ導線で起こせるよう常設する。
+const unlockOnGesture = (): void => {
+  if (isAudioRunning()) return;
+  void unlockAudio().then((running) => {
+    if (running) game.onAudioUnlocked();
+  });
 };
-window.addEventListener('pointerdown', unlockOnFirstGesture);
-window.addEventListener('touchend', unlockOnFirstGesture);
-window.addEventListener('click', unlockOnFirstGesture);
+window.addEventListener('pointerdown', unlockOnGesture);
+window.addEventListener('touchend', unlockOnGesture);
+window.addEventListener('click', unlockOnGesture);
 
 game.boot();
 
@@ -71,6 +70,8 @@ if (import.meta.env.DEV) {
       profileId: () => game.activeProfileId,
       phase: () => game.phase,
       bgmMode: () => getBgmMode(),
+      bgmSelection: () => getBgmSelection(),
+      audioStatus: () => getAudioStatus(),
       runtime: () => game.activeRuntime,
       grid: () => game.activeRuntime?.grid,
       stage: () => game.activeRuntime?.stage,

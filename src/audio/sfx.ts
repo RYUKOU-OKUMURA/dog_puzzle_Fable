@@ -8,6 +8,8 @@ import {
   bell,
   blip,
   isSoundEnabled,
+  getAudioStatus,
+  isAudioRunning,
   noiseHit,
   noteFreq,
   readyAudioGraph,
@@ -15,7 +17,7 @@ import {
   unlockAudio,
 } from './context';
 
-export { isSoundEnabled, setSoundEnabled, unlockAudio };
+export { getAudioStatus, isAudioRunning, isSoundEnabled, setSoundEnabled, unlockAudio };
 
 /** パネルをスロットに置いたとき */
 export function playPon(): void {

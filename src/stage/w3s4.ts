@@ -18,6 +18,7 @@ export const w3s4: StageDef = defineStage({
   id: 'w3-s4',
   name: 'スイスの まち 2',
   world: 'w3',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'bernese',
   difficulty: 4,
   palette: ['straight', 'corner', 'tee'],

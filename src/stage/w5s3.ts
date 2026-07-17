@@ -16,6 +16,7 @@ export const w5s3: StageDef = defineStage({
   id: 'w5-s3',
   name: 'ちゅうかがい',
   world: 'w5',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'shihTzu',
   difficulty: 5,
   theme: 'chinatown',

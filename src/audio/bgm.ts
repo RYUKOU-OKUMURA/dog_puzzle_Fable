@@ -1,76 +1,35 @@
 /**
- * BGM(Web Audio API 合成のみ)。
- * 曲データ・音色は docs/prototypes/audio-demo.html の W1「にほん」わふうループから移植(勝手に変えない)。
- * AudioContext は context.ts と共有(二重に作らない)。
+ * BGMプレイヤー(Web Audio API 合成のみ)。
+ * 曲固有のデータは tracks/ に置き、ここでは選曲・ループ・停止だけを扱う。
  */
-
+import { isSoundEnabled, readyAudioGraph, type AudioGraph } from './context';
 import {
-  bell,
-  hat,
-  isSoundEnabled,
-  kick,
-  noteFreq,
-  readyAudioGraph,
-  type AudioGraph,
-} from './context';
+  BGM_TRACK_IDS,
+  DEFAULT_BGM_TRACK_ID,
+  isBgmTrackId,
+  resolveBgmTrack,
+  type BgmTrackId,
+} from './tracks';
+import type { BgmArrangement, BgmTrack } from './tracks/types';
 
-/** normal=通常ループ / walk=おさんぽアレンジ / off=停止 */
-export type BgmMode = 'normal' | 'walk' | 'off';
+export { BGM_TRACK_IDS, DEFAULT_BGM_TRACK_ID, isBgmTrackId };
+export type { BgmArrangement, BgmTrackId };
 
-// ===== 曲データ: W1 にほん(ヨナぬき音階・88BPM・8小節) ==============
-const BPM = 88;
-const SPB = 60 / BPM;
-const LOOP_BEATS = 32;
-const MELODY: ReadonlyArray<readonly [number, string, number]> = [
-  [0, 'E5', 1],
-  [1, 'G5', 1],
-  [2, 'A5', 1],
-  [3, 'G5', 1],
-  [4, 'E5', 1],
-  [5, 'D5', 1],
-  [6, 'C5', 2],
-  [8, 'D5', 0.5],
-  [8.5, 'E5', 0.5],
-  [9, 'G5', 1],
-  [10, 'A5', 1],
-  [11, 'G5', 1],
-  [12, 'D5', 3],
-  [16, 'E5', 1],
-  [17, 'G5', 1],
-  [18, 'A5', 1],
-  [19, 'C6', 1],
-  [20, 'A5', 1],
-  [21, 'G5', 1],
-  [22, 'E5', 2],
-  [24, 'G5', 1],
-  [25, 'E5', 1],
-  [26, 'D5', 1],
-  [27, 'C5', 1],
-  [28, 'D5', 1],
-  [29, 'C5', 3],
-];
-const CHORDS = ['C', 'Am', 'G', 'G', 'C', 'Am', 'G', 'C'] as const;
-const BASS: Record<(typeof CHORDS)[number], readonly [string, string]> = {
-  C: ['C3', 'G3'],
-  Am: ['A2', 'E3'],
-  G: ['G2', 'D3'],
-};
-const ARP: Record<(typeof CHORDS)[number], readonly [string, string, string, string]> = {
-  C: ['E4', 'G4', 'C5', 'G4'],
-  Am: ['E4', 'A4', 'C5', 'A4'],
-  G: ['D4', 'G4', 'B4', 'G4'],
-};
+export interface BgmSelection {
+  trackId: string;
+  arrangement: BgmArrangement;
+}
 
-let mode: BgmMode = 'off';
+let selection: BgmSelection | null = null;
 let loopTimer: ReturnType<typeof setTimeout> | null = null;
-/** 停止時にまとめて止めるための音源リスト */
-const activeSrcs: AudioScheduledSourceNode[] = [];
-/** 短いフェード用のゲイン(master 直結ではなく BGM 専用バス) */
+/** 終了した音源を残さず、停止対象だけを追跡する。 */
+const activeSources = new Set<AudioScheduledSourceNode>();
 let bgmBus: GainNode | null = null;
 let generation = 0;
 
-function track(src: AudioScheduledSourceNode): void {
-  activeSrcs.push(src);
+function trackSource(source: AudioScheduledSourceNode): void {
+  activeSources.add(source);
+  source.addEventListener('ended', () => activeSources.delete(source), { once: true });
 }
 
 function clearLoopTimer(): void {
@@ -81,14 +40,15 @@ function clearLoopTimer(): void {
 }
 
 function stopSources(): void {
-  for (const s of activeSrcs) {
+  const sources = [...activeSources];
+  activeSources.clear();
+  for (const source of sources) {
     try {
-      s.stop();
+      source.stop();
     } catch {
       /* 停止済みは無視 */
     }
   }
-  activeSrcs.length = 0;
 }
 
 function ensureBgmBus(graph: AudioGraph): GainNode {
@@ -100,91 +60,55 @@ function ensureBgmBus(graph: AudioGraph): GainNode {
   return bgmBus;
 }
 
-function scheduleLoop(graph: AudioGraph, t0: number, walk: boolean): void {
-  const { audio, delaySend, noiseBuf } = graph;
-  const dest = ensureBgmBus(graph);
+function queueLoop(
+  graph: AudioGraph,
+  track: BgmTrack,
+  startAt: number,
+  arrangement: BgmArrangement,
+  currentGeneration: number,
+): void {
+  if (currentGeneration !== generation || selection === null || !isSoundEnabled()) return;
 
-  for (const [beat, note, len] of MELODY) {
-    bell(
-      audio,
-      dest,
-      delaySend,
-      t0 + beat * SPB,
-      noteFreq(note),
-      Math.min(len * SPB + 0.7, 1.6),
-      0.22,
-      true,
-      track,
-    );
-  }
-  CHORDS.forEach((ch, bar) => {
-    const barT = t0 + bar * 4 * SPB;
-    bell(audio, dest, delaySend, barT, noteFreq(BASS[ch][0]), 1.1, 0.16, false, track);
-    bell(audio, dest, delaySend, barT + 2 * SPB, noteFreq(BASS[ch][1]), 1.1, 0.13, false, track);
-    ARP[ch].forEach((note, i) => {
-      bell(
-        audio,
-        dest,
-        delaySend,
-        barT + (i + 0.5) * SPB,
-        noteFreq(note),
-        0.6,
-        walk ? 0.1 : 0.05,
-        false,
-        track,
-      );
-    });
-    if (walk) {
-      kick(audio, dest, barT, track);
-      kick(audio, dest, barT + 2 * SPB, track);
-      for (let i = 0; i < 4; i++) hat(audio, dest, noiseBuf, barT + (i + 0.5) * SPB, track);
-    }
-  });
-}
+  const destination = ensureBgmBus(graph);
+  track.scheduleLoop(graph, destination, startAt, arrangement, trackSource);
 
-function queueLoop(graph: AudioGraph, t0: number, walk: boolean, gen: number): void {
-  if (gen !== generation || mode === 'off' || !isSoundEnabled()) return;
-  scheduleLoop(graph, t0, walk);
-  const loopEnd = t0 + LOOP_BEATS * SPB;
+  const loopEnd = startAt + track.loopBeats * (60 / track.bpm);
   const delayMs = (loopEnd - graph.audio.currentTime - 0.4) * 1000;
   clearLoopTimer();
   loopTimer = setTimeout(
     () => {
-      if (gen !== generation || mode === 'off' || !isSoundEnabled()) return;
-      void readyAudioGraph().then((next) => {
-        if (!next || gen !== generation || mode === 'off') return;
-        queueLoop(next, loopEnd, mode === 'walk', gen);
+      loopTimer = null;
+      if (currentGeneration !== generation || selection === null || !isSoundEnabled()) return;
+      void readyAudioGraph().then((nextGraph) => {
+        if (!nextGraph || currentGeneration !== generation || selection === null) return;
+        queueLoop(nextGraph, track, loopEnd, arrangement, currentGeneration);
       });
     },
     Math.max(0, delayMs),
   );
 }
 
-/**
- * いま鳴っている音源を止め、短いフェードでプチッを抑える。
- * 新SEは足さず、ゲインだけすっと下げる。
- */
-function hardStop(fadeSec = 0.08): void {
+/** いま鳴っている音源を止め、短いフェードでプチッを抑える。 */
+function hardStop(fadeSeconds = 0.08): void {
   clearLoopTimer();
-  const stopGen = ++generation;
+  const stopGeneration = ++generation;
   const bus = bgmBus;
-  if (bus && fadeSec > 0) {
-    const t = bus.context.currentTime;
+  if (bus && fadeSeconds > 0) {
+    const now = bus.context.currentTime;
     try {
-      bus.gain.cancelScheduledValues(t);
-      bus.gain.setValueAtTime(bus.gain.value, t);
-      bus.gain.linearRampToValueAtTime(0.0001, t + fadeSec);
+      bus.gain.cancelScheduledValues(now);
+      bus.gain.setValueAtTime(bus.gain.value, now);
+      bus.gain.linearRampToValueAtTime(0.0001, now + fadeSeconds);
     } catch {
       /* コンテキスト破棄後などは無視 */
     }
     globalThis.setTimeout(
       () => {
-        // 停止後に別モードが始まっていたら触らない
-        if (stopGen !== generation) return;
+        if (stopGeneration !== generation) return;
         stopSources();
         if (bgmBus) bgmBus.gain.value = 1;
       },
-      fadeSec * 1000 + 20,
+      fadeSeconds * 1000 + 20,
     );
   } else {
     stopSources();
@@ -192,54 +116,76 @@ function hardStop(fadeSec = 0.08): void {
   }
 }
 
-function startFromNow(walk: boolean): void {
+function startFromNow(track: BgmTrack, arrangement: BgmArrangement): void {
   if (!isSoundEnabled()) {
-    mode = 'off';
+    selection = null;
     return;
   }
-  const gen = ++generation;
+  const currentGeneration = ++generation;
   clearLoopTimer();
   stopSources();
   void readyAudioGraph().then((graph) => {
-    if (!graph || gen !== generation || !isSoundEnabled()) return;
-    if (mode === 'off') return;
+    if (!graph || currentGeneration !== generation || !isSoundEnabled() || selection === null) return;
     const bus = ensureBgmBus(graph);
-    const t = graph.audio.currentTime;
-    bus.gain.cancelScheduledValues(t);
-    bus.gain.setValueAtTime(0.0001, t);
-    bus.gain.linearRampToValueAtTime(1, t + 0.06);
-    queueLoop(graph, t + 0.1, walk, gen);
+    const now = graph.audio.currentTime;
+    bus.gain.cancelScheduledValues(now);
+    bus.gain.setValueAtTime(0.0001, now);
+    bus.gain.linearRampToValueAtTime(1, now + 0.06);
+    queueLoop(graph, track, now + 0.1, arrangement, currentGeneration);
   });
 }
 
-/** 現在の BGM モード(テスト・デバッグ用) */
-export function getBgmMode(): BgmMode {
-  return mode;
+/** 現在の選曲。未登録IDは既定曲へ正規化して返す。 */
+export function getBgmSelection(): BgmSelection | null {
+  return selection ? { ...selection } : null;
+}
+
+/** 既存の開発フックを壊さないためのモード参照。 */
+export function getBgmMode(): BgmArrangement | 'off' {
+  return selection?.arrangement ?? 'off';
 }
 
 /**
- * BGM の再生モードを切り替える。
- * 同じモードへの再指定は何もしない(ループ途切れ防止)。
- * off 以外へ切り替えるときは頭からやりなおす(プロトタイプの walkMode 切替と同じ)。
+ * 曲IDとアレンジを同時に適用する。
+ * 同じアレンジでも曲IDが変われば必ず切り替え、未登録IDは無音にせず既定曲へ戻す。
  */
-export function setBgmMode(next: BgmMode): void {
-  if (next === 'off') {
-    if (mode === 'off') return;
-    mode = 'off';
+export function setBgm(next: BgmSelection | null): void {
+  if (next === null) {
+    if (selection === null) return;
+    selection = null;
     hardStop();
     return;
   }
   if (!isSoundEnabled()) {
-    mode = 'off';
+    selection = null;
     hardStop(0);
     return;
   }
-  if (next === mode && activeSrcs.length > 0) return;
-  mode = next;
-  startFromNow(next === 'walk');
+
+  const track = resolveBgmTrack(next.trackId);
+  const normalized: BgmSelection = { trackId: track.id, arrangement: next.arrangement };
+  if (
+    selection?.trackId === normalized.trackId &&
+    selection.arrangement === normalized.arrangement &&
+    activeSources.size > 0
+  ) {
+    return;
+  }
+
+  selection = normalized;
+  startFromNow(track, normalized.arrangement);
 }
 
-/** おと OFF 時や画面遷移で明示停止したいとき */
 export function stopBgm(): void {
-  setBgmMode('off');
+  setBgm(null);
+}
+
+/** デバッグ・テスト用。通常利用は getBgmSelection を使う。 */
+export function getActiveBgmSourceCount(): number {
+  return activeSources.size;
+}
+
+/** メニューなど曲指定がない場面の選曲。 */
+export function defaultBgmSelection(arrangement: BgmArrangement = 'normal'): BgmSelection {
+  return { trackId: DEFAULT_BGM_TRACK_ID, arrangement };
 }

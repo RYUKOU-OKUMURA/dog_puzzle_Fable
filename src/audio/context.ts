@@ -11,8 +11,10 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let delaySend: DelayNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
+/** ユーザージェスチャ内で一度でも running を確認できたか。 */
+let unlocked = false;
 /** resume 完了待ち(多重 resume を1本にまとめる) */
-let resumeWait: Promise<void> | null = null;
+let resumeWait: Promise<boolean> | null = null;
 
 /** おと ON/OFF。呼び出し側に分岐を散らさず、再生関数内で参照する */
 export function setSoundEnabled(enabled: boolean): void {
@@ -27,9 +29,24 @@ export function isSoundEnabled(): boolean {
  * 初回ユーザージェスチャで AudioContext を生成・resume する(iPad 自動再生制限対応)。
  * 再生関数からも呼ばれるが、タイトル等の最初のタップで先に呼んでおくと安全。
  */
-export function unlockAudio(): void {
+export async function unlockAudio(): Promise<boolean> {
   const audio = ensureContext();
-  if (audio) void ensureRunning(audio);
+  if (!audio) return false;
+  const running = await ensureRunning(audio);
+  if (running) unlocked = true;
+  return running;
+}
+
+export function isAudioRunning(): boolean {
+  return ctx?.state === 'running';
+}
+
+export type AudioStatus = AudioContextState | 'locked' | 'unsupported';
+
+/** 開発環境で無音原因を切り分けるための状態参照。 */
+export function getAudioStatus(): AudioStatus {
+  if (ctx) return ctx.state;
+  return getAudioContextCtor() ? 'locked' : 'unsupported';
 }
 
 function getAudioContextCtor(): AudioContextCtor | null {
@@ -76,20 +93,20 @@ export function ensureContext(): AudioContext | null {
  * Safari/iPad では AudioContext が suspended のまま始まり、
  * resume 完了前に schedule した音は無音になる。必ず running を待ってから鳴らす。
  */
-export function ensureRunning(audio: AudioContext): Promise<void> {
+export function ensureRunning(audio: AudioContext): Promise<boolean> {
   if (audio.state === 'running') {
     resumeWait = null;
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
   if (!resumeWait) {
     resumeWait = audio
       .resume()
-      .then(() => {
-        resumeWait = null;
-      })
-      .catch(() => {
-        resumeWait = null;
-      });
+      .then(() => audio.state === 'running')
+      .catch(() => false);
+    const currentWait = resumeWait;
+    void currentWait.then(() => {
+      if (resumeWait === currentWait) resumeWait = null;
+    });
   }
   return resumeWait;
 }
@@ -107,10 +124,12 @@ export interface AudioGraph {
  */
 export async function readyAudioGraph(): Promise<AudioGraph | null> {
   if (!soundEnabled) return null;
+  // 起動時に gesture 外の resume を始めると、最初のタップと競合して解除不能になる。
+  if (!unlocked) return null;
   const audio = ensureContext();
   if (!audio || !master || !delaySend || !noiseBuf) return null;
-  await ensureRunning(audio);
-  if (!soundEnabled || audio.state !== 'running') return null;
+  const running = await ensureRunning(audio);
+  if (!running || !soundEnabled) return null;
   return { audio, master, delaySend, noiseBuf };
 }
 

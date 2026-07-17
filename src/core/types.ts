@@ -63,6 +63,8 @@ export interface StageDef {
   scenery: { pos: GridPos; kind: SceneryKind }[];
   /** ゴールで出会う犬種ID */
   encounterDogId: string;
+  /** audio層の曲レジストリを参照するBGM ID。stage層はID文字列だけを保持する */
+  bgmTrackId: string;
   /** 難度(🦴1〜5)。ステージ選択画面(M4)の表示と、難度表(plan.md)の照合に使う */
   difficulty?: number;
   /** おやつのマス(座標)。M5(おやつ収集)から使用。defineStage で 'x,z' 文字列から検証済み座標へ変換 */

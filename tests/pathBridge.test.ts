@@ -30,6 +30,7 @@ function bridgeCrossStage(treats?: StageDef['treats']): StageDef {
     ],
     scenery: [],
     encounterDogId: 'chihuahua',
+      bgmTrackId: 'japan-01',
     treats,
   };
 }
@@ -80,6 +81,7 @@ describe('findPath: 橋を直進で通過', () => {
       ],
       scenery: [],
       encounterDogId: 'chihuahua',
+      bgmTrackId: 'japan-01',
     };
     const grid = new Grid(stage);
     grid.place({ x: 1, z: 1 }, 'straight', 90);
@@ -112,6 +114,7 @@ describe('findPath: 橋で曲がれない', () => {
       ],
       scenery: [],
       encounterDogId: 'chihuahua',
+      bgmTrackId: 'japan-01',
     };
     const grid = new Grid(stage);
     grid.place({ x: 2, z: 1 }, 'straight', 0);
@@ -145,6 +148,7 @@ describe('findPath: 同一橋マスを上下2回通る', () => {
       slots: [],
       scenery: [],
       encounterDogId: 'chihuahua',
+      bgmTrackId: 'japan-01',
     };
     const grid = new Grid(stage);
     expect(grid.rotate({ x: 2, z: 2 })).toBe(false);

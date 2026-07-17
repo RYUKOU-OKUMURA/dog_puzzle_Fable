@@ -18,6 +18,8 @@ export interface StageMapInput {
   world: string;
   /** ゴールで出会う犬種ID */
   encounterDogId: string;
+  /** audio層の曲レジストリを参照するBGM ID */
+  bgmTrackId: string;
   /** 難度(🦴1〜5)。ステージ選択画面(M4)の表示に使う */
   difficulty?: number;
   /** 1行=1マス行、トークンは空白区切り。行・列数は自由(最大12×12) */
@@ -273,6 +275,7 @@ function deriveEndRotation(
 /** テキスト地図から StageDef を組み立てる(M1 以降のステージ定義はこれ経由で書く) */
 export function defineStage(input: StageMapInput): StageDef {
   const parsed = parseStageMap(input.map);
+  validateBgmTrackId(input.bgmTrackId);
   // おやつは 'x,z' 文字列から座標へ変換し、盤外・道になり得ないマスを弾く(M5〜)
   const treats = input.treats ? parseTreats(input.treats, parsed) : undefined;
   // palette は空・重複・プレイヤー配置不可種を弾く。未指定は全種扱い(undefined のまま)
@@ -292,11 +295,19 @@ export function defineStage(input: StageMapInput): StageDef {
     slots: parsed.slots,
     scenery: parsed.scenery,
     encounterDogId: input.encounterDogId,
+    bgmTrackId: input.bgmTrackId,
     difficulty: input.difficulty,
     treats,
     palette,
     theme: input.theme,
   };
+}
+
+/** stage層ではID形式だけを検証し、audioレジストリとの整合は横断テストで保証する。 */
+function validateBgmTrackId(trackId: string): void {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trackId)) {
+    fail(`bgmTrackId「${trackId}」は こもじ・すうじ・ハイフンで かいてください`);
+  }
 }
 
 /** 難度(🦴)の範囲。ステージ選択画面(M4)の表示・plan.md の難度表と一致させる */

@@ -34,6 +34,7 @@ export function makeTestStage(): StageDef {
     ],
     scenery: [],
     encounterDogId: 'akita',
+      bgmTrackId: 'japan-01',
   };
 }
 

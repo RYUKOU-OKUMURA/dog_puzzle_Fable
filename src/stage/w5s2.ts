@@ -44,6 +44,7 @@ export const w5s2: StageDef = defineStage({
   id: 'w5-s2',
   name: 'あたたかい よるの まち',
   world: 'w5',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'samoyed',
   difficulty: 4,
   theme: 'night',

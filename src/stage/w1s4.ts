@@ -21,6 +21,7 @@ export const w1s4: StageDef = defineStage({
   id: 'w1-s4',
   name: 'にほんの まち 4',
   world: 'w1',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'kai',
   difficulty: 3,
   palette: ['straight', 'corner', 'tee'],

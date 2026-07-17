@@ -84,6 +84,7 @@ describe('findPath: 近道はおやつを通らないが遠回りは通る', () 
       ],
       scenery: [],
       encounterDogId: 'corgi',
+      bgmTrackId: 'japan-01',
       treats: [{ x: 2, z: 2 }],
     };
   }
@@ -143,6 +144,7 @@ describe('findPath: どう組んでもおやつに届かない', () => {
       ],
       scenery: [],
       encounterDogId: 'corgi',
+      bgmTrackId: 'japan-01',
       treats: [{ x: 3, z: 2 }],
     };
   }
@@ -222,6 +224,7 @@ function longCorridorStage(treats: GridPos[]): StageDef {
     ],
     scenery: [],
     encounterDogId: 'corgi',
+      bgmTrackId: 'japan-01',
     treats,
     palette: ['straight', 'corner'],
   };

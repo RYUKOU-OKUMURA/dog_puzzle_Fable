@@ -26,6 +26,7 @@ export const w5s4: StageDef = defineStage({
   id: 'w5-s4',
   name: 'フィナーレの おまつり',
   world: 'w5',
+  bgmTrackId: 'japan-01',
   encounterDogId: 'dachshund',
   difficulty: 5,
   theme: 'festival',

@@ -47,6 +47,7 @@ describe('M10: ソルバ到達可能性の枝刈り', () => {
       ],
       scenery: [],
       encounterDogId: 'akita',
+      bgmTrackId: 'japan-01',
     };
     expect(solveGrid(new Grid(isolated)).status).toBe('none');
     expect(findSolution(new Grid(isolated))).toBeNull();

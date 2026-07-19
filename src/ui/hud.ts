@@ -34,7 +34,7 @@ export class Hud {
 
     const backButton = document.createElement('button');
     backButton.className = 'btn btn-sub hud-back';
-    backButton.textContent = 'もどる';
+    backButton.textContent = 'ステージを えらぶ';
     backButton.addEventListener('click', () => callbacks.onExit());
 
     this.stageName = document.createElement('div');

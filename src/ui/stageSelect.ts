@@ -20,6 +20,7 @@ export interface StageTileData {
 export interface StageSelectCallbacks {
   onPick(stageId: string): void;
   onBack(): void;
+  onTitle(): void;
 }
 
 /** 🦴 を難度の数だけ並べる(難度表の 🦴1〜5) */
@@ -73,11 +74,21 @@ export class StageSelectView {
       card.append(grid);
     }
 
+    const navRow = document.createElement('div');
+    navRow.className = 'select-nav-row';
+
     const backButton = document.createElement('button');
     backButton.className = 'btn btn-sub';
     backButton.textContent = 'せかいを えらぶ';
     backButton.addEventListener('click', () => callbacks.onBack());
-    card.append(backButton);
+
+    const titleButton = document.createElement('button');
+    titleButton.className = 'btn btn-sub';
+    titleButton.textContent = 'タイトルに もどる';
+    titleButton.addEventListener('click', () => callbacks.onTitle());
+
+    navRow.append(backButton, titleButton);
+    card.append(navRow);
 
     overlay.append(card);
     this.root.append(overlay);

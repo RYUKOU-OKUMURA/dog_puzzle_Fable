@@ -464,6 +464,7 @@ export class Game {
       {
         onPick: (stageId) => this.enterStage(stageId),
         onBack: () => this.showWorldSelect(),
+        onTitle: () => this.toTitle(),
       },
     );
   }
@@ -510,7 +511,7 @@ export class Game {
     this.runtime?.puzzle.removePanel(pos);
   }
 
-  /** パズル中の「もどる」→ ステージ選択へ(配置は保存されないので途中退出でも安心) */
+  /** パズル中の「ステージを えらぶ」→ ステージ選択へ(配置は保存されないので途中退出でも安心) */
   onExitPuzzle(): void {
     if (this.phase !== 'puzzle') return;
     this.resetHintTracking();

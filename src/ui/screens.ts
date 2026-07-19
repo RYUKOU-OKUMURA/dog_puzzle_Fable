@@ -45,18 +45,6 @@ export class Screens {
     const screen = document.createElement('div');
     screen.className = 'screen screen-sky';
 
-    // だれがあそんでいるかの表示 + 切替導線(タイトルの右上に固定)
-    if (profile) {
-      const who = document.createElement('button');
-      who.className = 'profile-chip';
-      who.innerHTML =
-        `<span class="profile-chip-icon">${profile.emoji}</span>` +
-        `<span class="profile-chip-name">${escapeText(profile.name)}</span>` +
-        `<span class="profile-chip-arrow">▸</span>`;
-      who.addEventListener('click', onSwitchProfile);
-      screen.append(who);
-    }
-
     const logo = document.createElement('div');
     logo.className = 'title-logo';
     logo.innerHTML = 'しばちゃんの<br />おさんぽパズル';
@@ -79,7 +67,19 @@ export class Screens {
     dressButton.textContent = '🎀 きせかえ';
     dressButton.addEventListener('click', onDressUp);
 
-    screen.append(logo, sub, startButton, zukanButton, dressButton);
+    const titleButtons: HTMLElement[] = [logo, sub, startButton, zukanButton, dressButton];
+
+    // 起動時と同じ文言で、メインのボタン列からプロフィール切替へ(右上だけだと子供が見つけにくい)
+    if (profile) {
+      const switchButton = document.createElement('button');
+      switchButton.className = 'btn btn-sub title-profile-switch';
+      switchButton.type = 'button';
+      switchButton.textContent = `${profile.emoji} ${profile.name}  /  だれが あそぶ? 🐾`;
+      switchButton.addEventListener('click', onSwitchProfile);
+      titleButtons.push(switchButton);
+    }
+
+    screen.append(...titleButtons);
 
     // おと ON/OFF(M13)。タイトルでは常に出す(プロフィール無しでも切替は可・保存は profile 選択後)
     const soundButton = document.createElement('button');

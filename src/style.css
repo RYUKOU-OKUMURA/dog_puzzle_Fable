@@ -101,6 +101,14 @@ body {
   min-height: 48px;
 }
 
+/* タイトル: プロフィール切替(起動時と同じ「だれが あそぶ?」) */
+.btn.title-profile-switch {
+  font-size: 17px;
+  padding: 12px 24px;
+  max-width: min(520px, 92vw);
+  line-height: 1.35;
+}
+
 ruby rt {
   font-size: 0.45em;
   color: inherit;
@@ -559,37 +567,6 @@ ruby rt {
   line-height: 1;
 }
 
-/* タイトル画面の「だれがあそんでいるか」チップ */
-.profile-chip {
-  border: none;
-  background: var(--white);
-  color: var(--brown);
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: bold;
-  padding: 10px 20px;
-  min-height: 48px;
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-
-.profile-chip:active {
-  transform: scale(0.94);
-}
-
-.profile-chip-icon {
-  font-size: 22px;
-}
-
-.profile-chip-arrow {
-  color: var(--brown-light);
-}
-
 /* 作成/編集フォーム */
 .profile-form-card {
   max-width: min(520px, 94vw);
@@ -755,6 +732,18 @@ ruby rt {
   width: 100%;
 }
 
+.select-nav-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.select-nav-row .btn {
+  min-height: 48px;
+}
+
 .world-grid,
 .stage-grid {
   width: 100%;
@@ -913,7 +902,7 @@ ruby rt {
   padding: 20px 16px;
 }
 
-/* HUDの「もどる」は上部バーに収まるよう控えめに(タップターゲット48pxは厳守) */
+/* HUDの「ステージを えらぶ」は上部バーに収まるよう控えめに(タップターゲット48pxは厳守) */
 .hud-back {
   font-size: 14px;
   padding: 8px 18px;

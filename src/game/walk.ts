@@ -110,6 +110,32 @@ export async function celebrate(dog: DogModel, animator: Animator): Promise<void
   dog.group.position.y = 0;
 }
 
+/** ちょうちょを追うとき: 短く一回転(橋の高さは維持) */
+export async function spinOnce(dog: DogModel, animator: Animator): Promise<void> {
+  const startY = dog.group.position.y;
+  const start = dog.group.rotation.y;
+  await animator.run(0.45, (t) => {
+    dog.group.rotation.y = start + Math.PI * 2 * easeInOut(t);
+    dog.group.position.y = startY + Math.sin(t * Math.PI) * 0.12;
+  });
+  dog.group.rotation.y = start;
+  dog.group.position.y = startY;
+}
+
+/** 鳥にやさしくワン: 首を少し上げて2回こくん(新SEなし) */
+export async function gentleBark(dog: DogModel, animator: Animator): Promise<void> {
+  for (let i = 0; i < 2; i++) {
+    await animator.run(0.12, (t) => {
+      dog.head.rotation.x = -0.25 * easeInOut(t);
+    });
+    await animator.run(0.12, (t) => {
+      dog.head.rotation.x = -0.25 * (1 - easeInOut(t));
+    });
+    if (i === 0) await animator.wait(0.15);
+  }
+  dog.head.rotation.x = 0;
+}
+
 /** ヒント演出: ちょこんと座る(胴を少し沈めて首をかしげる) */
 export async function sitDown(dog: DogModel, animator: Animator): Promise<void> {
   const baseY = dog.group.position.y;

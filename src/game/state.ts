@@ -69,6 +69,7 @@ import { firstClearCelebrationFlags } from './clearCelebration';
 import { grantWorldClearAccessory } from './accessoryReward';
 import { HintGeneration } from './hintGeneration';
 import { selectBgmForGame, type BgmPhase } from './bgmPolicy';
+import { createWalkEventSession } from './walkEvents';
 import {
   celebrate,
   faceTowardIsometricCamera,
@@ -723,13 +724,24 @@ export class Game {
       // route[0](スタート)は walkAlong の onArrive が発火しないため、歩き出しに食べる
       if (result.route.length > 0) await eatIfTreat(result.route[0]!);
       const heights = walkHeightsForRoute(grid, result.route);
+      const walkEventSession = createWalkEventSession(result.route, stage);
+      const { sceneContext } = this.deps;
       await walkAlong(
         this.shiba,
         result.route,
         stage,
         animator,
         0.42,
-        (cell) => eatIfTreat(cell),
+        async (cell) => {
+          await eatIfTreat(cell);
+          await walkEventSession.maybePlayAtCell(
+            cell,
+            this.shiba,
+            stage,
+            animator,
+            sceneContext.scene,
+          );
+        },
         heights,
       );
       await this.meetFriend();
